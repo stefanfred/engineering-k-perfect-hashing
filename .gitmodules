@@ -1,0 +1,3 @@
+[submodule "extlib/simple-ribbon"]
+	path = extlib/simple-ribbon
+	url = https://github.com/ByteHamster/SimpleRibbon.git
