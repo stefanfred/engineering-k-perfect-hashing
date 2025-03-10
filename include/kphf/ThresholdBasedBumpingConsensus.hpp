@@ -12,9 +12,9 @@
 #include "kphf.hpp"
 #include "sux/bits/EliasFano.hpp"
 #include "consensus.hpp"
-#include "util.hpp"
 
 #include <ips2ra.hpp>
+#include <bytehamster/util/Function.h>
 
 #if 0
 /* highly illegal hack */
@@ -306,12 +306,12 @@ public:
 		uint64_t offset = 0;
 		for (uint64_t i = 0; i < layers.size(); i++) {
 			auto &[cur_buckets, consensus] = layers[i];
-			uint64_t h = remix(key.hi + i);
-			uint64_t b = rescale(h, cur_buckets);
+			uint64_t h = bytehamster::util::remix(key.hi + i);
+			uint64_t b = bytehamster::util::fastrange64(h, cur_buckets);
 			auto [seed,tidx] =
 			  consensus.get(b * shared->threshold_size, shared->threshold_size);
 			tidx = decrypt(seed, tidx);
-			uint64_t f = remix(key.lo + seed + i);
+			uint64_t f = bytehamster::util::remix(key.lo + seed + i);
 
 			if (f < shared->thresholds[tidx]) return offset + b;
 
@@ -370,7 +370,7 @@ private:
 		  uint64_t seed, uint64_t n_buckets) {
 			auto r = std::views::transform(hashes,
 			  [seed, n_buckets](Hash128 key) {
-				uint64_t b = rescale(remix(key.hi + seed), n_buckets);
+				uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + seed), n_buckets);
 				return Key { b, 0, key };
 			});
 			std::vector<Key> keys(r.begin(), r.end());
@@ -383,7 +383,7 @@ private:
 
 			auto it = current.end();
 			while (it != keys.end() && it->bucket == cur_bucket) {
-				it->fingerprint = remix(it->hash.lo + seed + layer);
+				it->fingerprint = bytehamster::util::remix(it->hash.lo + seed + layer);
 				++it;
 			}
 
@@ -449,7 +449,7 @@ private:
 				uint64_t idx = it - current.begin();
 				uint64_t error = goal - idx;
 				if (error > error_bound) break;
-				if (error < error_bound || remix(seed + tidx) < error_prob) {
+				if (error < error_bound || bytehamster::util::remix(seed + tidx) < error_prob) {
 					for (Key &k: current | std::views::drop(idx)) {
 						bumped->push_back(k.hash);
 					}

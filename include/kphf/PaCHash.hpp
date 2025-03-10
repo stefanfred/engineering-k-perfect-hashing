@@ -8,9 +8,9 @@
 #endif
 #include <SimpleRibbon.h>
 #include <ips2ra.hpp>
+#include <bytehamster/util/Function.h>
 
 #include "kphf.hpp"
-#include "util.hpp"
 #include "pachash/EliasFano.hpp"
 
 namespace kphf {
@@ -59,7 +59,7 @@ public:
 	  PaCHash(std::move(build(k, bucket_size, keys))) {}
 
 	uint64_t operator()(Hash128 key) const {
-		uint64_t bucket = rescale(key.hi, n_buckets);
+		uint64_t bucket = bytehamster::util::fastrange64(key.hi, n_buckets);
 		auto [start, end] = ef.search(bucket+1);
 		int bits = std::bit_width(end - start);
 		uint64_t x = 0;
@@ -82,7 +82,7 @@ private:
 		uint64_t n_bins = (keys.size() + k - 1) / k;
 		uint64_t n_buckets = std::ceil(keys.size() / bucket_size);
 
-		for (Hash128 &key: keys) key.hi = rescale(key.hi, n_buckets);
+		for (Hash128 &key: keys) key.hi = bytehamster::util::fastrange64(key.hi, n_buckets);
 		ips2ra::sort(keys.begin(), keys.end(),
 			[](const Hash128 &key) -> uint64_t { return key.hi; });
 		std::vector<uint64_t> bucket_sizes(n_buckets);

@@ -8,6 +8,7 @@
 #endif
 
 #include <ips2ra.hpp>
+#include <bytehamster/util/Function.h>
 
 #include "kphf.hpp"
 #include "sux/bits/SimpleSelectHalf.hpp"
@@ -215,7 +216,7 @@ public:
 	uint64_t operator()(Hash128 item) const {
 		uint64_t bucket = bucket_function(item.hi);
 		uint64_t seed = seeds[bucket];
-		return rescale(remix(item.lo + seed), nbins);
+		return bytehamster::util::fastrange64(bytehamster::util::remix(item.lo + seed), nbins);
 	}
 
 	size_t count_bits() const {
@@ -296,13 +297,13 @@ public:
 			for (seed = 0;; seed++) {
 				uint64_t j;
 				for (j = 0; j < bucket.size(); j++) {
-					uint64_t hash = rescale(remix(bucket[j].second + seed), nbins);
+					uint64_t hash = bytehamster::util::fastrange64(bytehamster::util::remix(bucket[j].second + seed), nbins);
 					if (counts[hash] == k) break;
 					counts[hash]++;
 				}
 				if (j == bucket.size()) break;
 				while (j > 0) {
-					uint64_t hash = rescale(remix(bucket[--j].second + seed), nbins);
+					uint64_t hash = bytehamster::util::fastrange64(bytehamster::util::remix(bucket[--j].second + seed), nbins);
 					counts[hash]--;
 				}
 			}
