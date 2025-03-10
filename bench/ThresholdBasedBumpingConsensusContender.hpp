@@ -7,22 +7,28 @@
 
 namespace ThresholdBasedBumpingConsensusContender {
 
-template<uint64_t K, double OVERLOAD,
-  uint64_t THRESHOLD_SIZE, typename Builder>
+template<typename Builder>
 struct ThresholdBasedBumpingConsensusContender {
 private:
+	uint64_t k;
+	double overload;
+	int threshold_size;
 	Builder phf_builder;
+	kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensusBuilder<Builder> builder;
 
 public:
-	using Hash = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus<K, OVERLOAD, THRESHOLD_SIZE, typename Builder::Hash>;
+	using Hash = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus<typename Builder::Hash>;
 
-	ThresholdBasedBumpingConsensusContender(Builder &&phf_builder): phf_builder(std::move(phf_builder)) {}
+	ThresholdBasedBumpingConsensusContender(uint64_t k, double overload, int threshold_size, Builder &&phf_builder):
+	  k(k), overload(overload), threshold_size(threshold_size),
+	  phf_builder(phf_builder),
+	  builder(k, overload, threshold_size, std::move(phf_builder)) {}
 
 	Hash operator()(const std::vector<Hash128> &items) const {
-		return Hash(items, std::as_const(phf_builder));
+		return builder(items);
 	}
 
-	uint64_t get_k() const { return K; }
+	uint64_t get_k() const { return k; }
 
 	static std::string name() {
 		return "ThresholdBasedBumpingConsensus";
@@ -30,8 +36,8 @@ public:
 
 	std::vector<std::pair<std::string, std::string>> meta() const {
 		std::vector<std::pair<std::string, std::string>> res = {
-			{ "overload", std::to_string(OVERLOAD) },
-			{ "threshold_size", std::to_string(THRESHOLD_SIZE) },
+			{ "overload", std::to_string(overload) },
+			{ "threshold_size", std::to_string(threshold_size) },
 			{ "phf", phf_builder.name() },
 		};
 		for (auto &[name, value]: phf_builder.meta()) {
@@ -45,25 +51,18 @@ constexpr uint64_t N = 10'000'000;
 
 using H = HashDisplaceContender::HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::RiceEncoding>;
 
-template<uint64_t K, uint64_t THRESHOLD_SIZE, double OVERLOAD>
-void i(Benchmarks &bench) {
-	for (uint64_t bucket_size: {6}) {
-		for (double load_factor: {0.95}) {
-			bench.add(TestAndBenchmark(ThresholdBasedBumpingConsensusContender<K, OVERLOAD, THRESHOLD_SIZE, H>(H(1, bucket_size, load_factor)), N));
+H hash_displace(1, 6, 0.95);
+
+void f(Benchmarks &bench, uint64_t k,
+  std::initializer_list<uint64_t> threshold_sizes,
+  std::initializer_list<double> overloads) {
+	for (uint64_t threshold_size: threshold_sizes) {
+		for (double overload: overloads) {
+			bench.add(TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size, H(hash_displace)), N));
+			//std::cerr << '.';
 		}
+		//std::cerr << '\n';
 	}
-}
-
-template<uint64_t K, uint64_t THRESHOLD_SIZE, double ...OVERLOAD>
-void h(Benchmarks &bench) {
-	(i<K, THRESHOLD_SIZE, OVERLOAD>(bench), ...);
-}
-
-template<uint64_t K, uint64_t ...THRESHOLD_SIZE>
-void f(Benchmarks &bench) {
-	//(h<K, THRESHOLD_SIZE, 1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50, 1.55, 1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90, 1.95, 2.00>(bench), ...);
-	//(h<K, THRESHOLD_SIZE, 1.30, 1.35, 1.40>(bench), ...);
-	(h<K, THRESHOLD_SIZE, 1.30>(bench), ...);
 }
 
 void benchmark(Benchmarks &bench) {
@@ -71,6 +70,9 @@ void benchmark(Benchmarks &bench) {
 	//f<100, 6, 7, 8>(bench);
 	//f<1000, 8, 9, 10, 11>(bench);
 	//f<100, 7,8,9>(bench);
-	f<100, 6>(bench);
+	//f(bench, 100, {6});
+	f(bench, 10, {3,4,5}, {1.85,1.90,1.95,2.00,2.05});
+	f(bench, 100, {5,6,7}, {1.30,1.35,1.40});
+	//f(bench, 1000, {8,9,10,11});
 }
 };
