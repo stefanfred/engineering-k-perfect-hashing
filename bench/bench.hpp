@@ -109,14 +109,10 @@ public:
 	}
 
 	void run() {
-		{
-			const std::time_t now = std::time(nullptr);
-			std::cerr <<
-			  std::put_time(std::localtime(&now), "Started at %T\n");
-		}
 		for (unsigned int i = 0; i < 10; i++) {
 			iteration();
 		}
+		dump();
 	}
 
 	void dump() override {
