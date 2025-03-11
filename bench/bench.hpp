@@ -108,6 +108,17 @@ public:
 		}
 	}
 
+	void run() {
+		{
+			const std::time_t now = std::time(nullptr);
+			std::cerr <<
+			  std::put_time(std::localtime(&now), "Started at %T\n");
+		}
+		for (unsigned int i = 0; i < 10; i++) {
+			iteration();
+		}
+	}
+
 	void dump() override {
 		auto construction = cons_stats.build();
 		auto query = query_stats.build();
@@ -130,37 +141,5 @@ public:
 			<< "\tsize=" << size.mean;
 		for (auto [k,v]: meta) std::cout << "\t" << k << "=" << v;
 		std::cout << "\n";
-	}
-};
-
-class Benchmarks {
-private:
-	std::vector<std::unique_ptr<Benchmark>> benchmarks;
-
-public:
-	Benchmarks() {}
-
-	template<typename B>
-	void add(B &&bench) {
-		benchmarks.push_back(std::make_unique<B>(bench));
-	}
-
-	void run(unsigned int runs, bool quiet = false) {
-		{
-			const std::time_t now = std::time(nullptr);
-			std::cerr <<
-			  std::put_time(std::localtime(&now), "Started at %T\n");
-		}
-		size_t total = runs * size(benchmarks);
-		size_t done = 0;
-		for (unsigned int i = 0; i < runs; i++) {
-			for (auto &b: benchmarks) {
-				std::cerr << std::format("  {:2}%\r", 100u * done++ / total);
-
-				b->iteration();
-			}
-		}
-		std::cerr << "      \r";
-		if (!quiet) for (auto &b: benchmarks) b->dump();
 	}
 };

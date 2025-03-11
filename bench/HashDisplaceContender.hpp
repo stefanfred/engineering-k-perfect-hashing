@@ -39,25 +39,25 @@ public:
 };
 
 template<typename Encoding>
-void h(Benchmarks &bench, size_t k, std::initializer_list<size_t> bucket_sizes) {
+void h(size_t k, std::initializer_list<size_t> bucket_sizes) {
 	for (size_t bucket_size: bucket_sizes) {
-		bench.add(TestAndBenchmark(HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size)));
+		TestAndBenchmark(HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size)).run();
 	}
 }
 
 template<typename ...Encoding>
-void g(Benchmarks &bench, size_t k, std::initializer_list<size_t> bucket_sizes) {
-	(h<Encoding>(bench, k, bucket_sizes), ...);
+void g(size_t k, std::initializer_list<size_t> bucket_sizes) {
+	(h<Encoding>(k, bucket_sizes), ...);
 }
 
-void f(Benchmarks &bench, size_t k, std::initializer_list<size_t> bucket_sizes) {
-	g<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(bench, k, bucket_sizes);
+void f(size_t k, std::initializer_list<size_t> bucket_sizes) {
+	g<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(k, bucket_sizes);
 }
 
-void benchmark(Benchmarks &bench) {
-	f(bench, 1000, {30,40,50,60,70,80,90,100,150,200,250,300,350,400});
-	f(bench, 100, {10,20,30,40,50,60,70,80,90,100,110,120});
-	f(bench, 10, {5,10,15,20,25,30});
+void benchmark() {
+	f(1000, {30,40,50,60,70,80,90,100,150,200,250,300,350,400});
+	f(100, {10,20,30,40,50,60,70,80,90,100,110,120});
+	f(10, {5,10,15,20,25,30});
 }
 
 }

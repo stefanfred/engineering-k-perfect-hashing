@@ -50,26 +50,24 @@ using H = HashDisplaceContender::HashDisplaceContender<kphf::HashDisplace::Optim
 
 H hash_displace(1, 6, 0.95);
 
-void f(Benchmarks &bench, uint64_t k,
+void f(uint64_t k,
   std::initializer_list<uint64_t> threshold_sizes,
   std::initializer_list<double> overloads) {
 	for (uint64_t threshold_size: threshold_sizes) {
 		for (double overload: overloads) {
-			bench.add(TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size, H(hash_displace))));
-			//std::cerr << '.';
+			TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size, H(hash_displace))).run();
 		}
-		//std::cerr << '\n';
 	}
 }
 
-void benchmark(Benchmarks &bench) {
+void benchmark() {
 	//f<10, 3, 4, 5>(bench);
 	//f<100, 6, 7, 8>(bench);
 	//f<1000, 8, 9, 10, 11>(bench);
 	//f<100, 7,8,9>(bench);
 	//f(bench, 100, {6});
-	f(bench, 10, {3,4,5}, {1.85,1.90,1.95,2.00,2.05});
-	f(bench, 100, {5,6,7}, {1.30,1.35,1.40});
+	f(10, {3,4,5}, {1.85,1.90,1.95,2.00,2.05});
+	f(100, {5,6,7}, {1.30,1.35,1.40});
 	//f(bench, 1000, {8,9,10,11});
 }
 };

@@ -32,11 +32,11 @@ public:
 	}
 };
 
-void benchmark(Benchmarks &bench) {
+void benchmark() {
 	for (int i = 1; i < 200; i++) {
-		bench.add(TestAndBenchmark(PaCHashContender(10, i / 20.0)));
-		bench.add(TestAndBenchmark(PaCHashContender(100, i / 20.0)));
-		bench.add(TestAndBenchmark(PaCHashContender(1000, i / 20.0)));
+		TestAndBenchmark(PaCHashContender(10, i / 20.0)).run();
+		TestAndBenchmark(PaCHashContender(100, i / 20.0)).run();
+		TestAndBenchmark(PaCHashContender(1000, i / 20.0)).run();
 	}
 }
 
