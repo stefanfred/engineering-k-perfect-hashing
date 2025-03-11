@@ -92,7 +92,8 @@ static const uint64_t start_seed[] = {0x106393c187cae21a, 0x6453cec3f7376937, 0x
  * @param z a 64-bit integer.
  * @return a 64-bit integer obtained by mixing the bits of `z`.
  */
-
+// TODO: Remove functions that are duplicates of things that can be found in RecSplit/Sux,
+//  no need to define them again
 uint64_t inline remix(uint64_t z) {
 	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
 	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;

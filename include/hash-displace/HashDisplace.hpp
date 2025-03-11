@@ -17,6 +17,7 @@
 namespace kphf {
 namespace HashDisplace {
 
+// TODO: Should be in its own file
 class UniformBucketFunction {
 private:
 
@@ -53,6 +54,7 @@ public:
 	static std::string name() { return "uniform"; }
 };
 
+// TODO: Should be in its own file
 class CompactEncoding {
 private:
 	uint64_t bits_per_bucket;
@@ -89,6 +91,7 @@ public:
 	static std::string name() { return "compact"; }
 };
 
+// TODO: Should be in its own file
 class RiceEncoding {
 private:
 	uint64_t length;

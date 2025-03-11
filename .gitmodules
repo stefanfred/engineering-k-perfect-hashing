@@ -7,3 +7,6 @@
 [submodule "extlib/sux"]
 	path = extlib/sux
 	url = https://github.com/vigna/sux.git
+[submodule "extlib/tlx"]
+	path = extlib/tlx
+	url = https://github.com/tlx/tlx.git

@@ -34,6 +34,7 @@ namespace tlx {
 #endif
 
 namespace kphf {
+// TODO: Add non-consensus variant as well
 namespace ThresholdBasedBumpingConsensus {
 
 template<uint64_t n_thresholds>
@@ -465,6 +466,7 @@ private:
 		}
 	};
 
+	// TODO: Why is there this static build function instead of just a constructor?
 	template<typename F>
 	static ThresholdBasedBumpingConsensus build(
 	  std::vector<Hash128> keys,

@@ -23,6 +23,11 @@ add_library(KphfCommon INTERFACE)
 target_include_directories(KphfCommon INTERFACE include/common)
 target_compile_features(KphfCommon INTERFACE cxx_std_23)
 
+if(NOT TARGET tlx)
+    set(TLX_INSTALL_INCLUDE_DIR tlx CACHE PATH "Workaround for TLX breaking the first cmake call")
+    add_subdirectory(extlib/tlx SYSTEM EXCLUDE_FROM_ALL)
+endif()
+
 #################### K-Perfect Hash Function Libraries ####################
 add_library(KphfPaCHash INTERFACE)
 target_include_directories(KphfPaCHash INTERFACE include/pachash)
@@ -51,7 +56,7 @@ add_library(Kphf::ThresholdBasedBumping ALIAS KphfThresholdBasedBumping)
 #################### Benchmarks ####################
 if(PROJECT_IS_TOP_LEVEL)
     add_executable(Benchmark bench/main.cpp)
-    target_link_libraries(Benchmark ByteHamsterUtil)
+    target_link_libraries(Benchmark ByteHamsterUtil tlx)
     target_link_libraries(Benchmark Kphf::PaCHash Kphf::RecSplit Kphf::HashDisplace Kphf::ThresholdBasedBumping)
     target_compile_features(Benchmark PRIVATE cxx_std_23)
 endif()

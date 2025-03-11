@@ -135,6 +135,7 @@ public:
 		std::vector<std::vector<Hash128>> inv((n + k - 1) / k);
 		for (auto &v: inv) v.reserve(k);
 #endif
+		// TODO: Testing (with counting) and measuring the actual throughput should be two independent steps
 		measure_multi(query_stats, [&](Hash128 item) {
 			uint64_t r = hash(item);
 			if (r >= counts.size()) throw bad_hash("hash value out of bounds");

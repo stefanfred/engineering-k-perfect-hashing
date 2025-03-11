@@ -1,12 +1,15 @@
 #include <map>
 #include <ranges>
 #include <string>
+#include <tlx/cmdline_parser.hpp>
 
 #include "bench.hpp"
 #include "ThresholdBasedBumpingConsensusContender.hpp"
 #include "HashDisplaceContender.hpp"
 #include "PaCHashContender.hpp"
 
+// TODO: RecSplit?
+// TODO: Add CMPH library, which also has a k-perfect (not minimal) hash function
 const std::map<std::string, void (*)(Benchmarks &)> contenders = {
 	{"ThresholdBasedBumpingConsensus",
 		&ThresholdBasedBumpingConsensusContender::benchmark},
@@ -17,6 +20,19 @@ const std::map<std::string, void (*)(Benchmarks &)> contenders = {
 };
 
 int main(int argc, char **argv) {
+	// TODO: Use these
+    size_t numKeys = 1e6;
+	size_t numQueries = 1e6;
+	size_t k = 8;
+
+    tlx::CmdlineParser cmd;
+	cmd.add_bytes('n', "numKeys", numKeys, "Number of objects");
+	cmd.add_bytes('q', "numQueries", numQueries, "Number of queries to perform");
+	cmd.add_bytes('k', "k", k, "Maximum number of keys per bucket");
+	if (!cmd.process(argc, argv)) {
+		return 1;
+	}
+
 	Benchmarks bench;
 	if (argc == 1) {
 		for (auto f: contenders | std::views::values) (*f)(bench);
