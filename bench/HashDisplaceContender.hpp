@@ -1,7 +1,6 @@
 #pragma once
 
-#include <kphf/kphf.hpp>
-#include <kphf/HashDisplace.hpp>
+#include <HashDisplace.hpp>
 #include "bench.hpp"
 
 namespace HashDisplaceContender {

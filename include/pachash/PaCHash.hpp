@@ -10,8 +10,8 @@
 #include <ips2ra.hpp>
 #include <bytehamster/util/Function.h>
 
-#include "kphf.hpp"
-#include "pachash/EliasFano.hpp"
+#include <hash128.hpp>
+#include "EliasFano.hpp"
 
 namespace kphf {
 namespace PaCHash {

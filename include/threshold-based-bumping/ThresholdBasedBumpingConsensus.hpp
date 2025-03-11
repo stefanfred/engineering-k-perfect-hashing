@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <limits>
 #include <cstdint>
@@ -9,12 +11,12 @@
 #include <unordered_map>
 #include <ranges>
 
-#include "kphf.hpp"
-#include "sux/bits/EliasFano.hpp"
-#include "consensus.hpp"
-
+#include <sux/bits/EliasFano.hpp>
 #include <ips2ra.hpp>
 #include <bytehamster/util/Function.h>
+
+#include <hash128.hpp>
+#include "consensus.hpp"
 
 #if 0
 /* highly illegal hack */

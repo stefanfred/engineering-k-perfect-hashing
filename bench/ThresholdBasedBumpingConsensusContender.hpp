@@ -1,8 +1,7 @@
 #pragma once
 
 #include "bench.hpp"
-#include <kphf/kphf.hpp>
-#include <kphf/ThresholdBasedBumpingConsensus.hpp>
+#include <ThresholdBasedBumpingConsensus.hpp>
 #include "HashDisplaceContender.hpp"
 
 namespace ThresholdBasedBumpingConsensusContender {

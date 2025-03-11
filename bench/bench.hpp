@@ -13,7 +13,7 @@
 #include <memory>
 #include <format>
 
-#include <kphf/kphf.hpp>
+#include <hash128.hpp>
 #include "stat.hpp"
 
 using Clock = std::chrono::steady_clock;

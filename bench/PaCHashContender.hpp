@@ -1,7 +1,6 @@
 #pragma once
 
-#include <kphf/kphf.hpp>
-#include <kphf/PaCHash.hpp>
+#include <PaCHash.hpp>
 #include "bench.hpp"
 
 namespace PaCHashContender {

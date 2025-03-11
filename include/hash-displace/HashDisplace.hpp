@@ -9,10 +9,10 @@
 
 #include <ips2ra.hpp>
 #include <bytehamster/util/Function.h>
+#include <sux/bits/SimpleSelectHalf.hpp>
 
-#include "kphf.hpp"
-#include "sux/bits/SimpleSelectHalf.hpp"
-#include "hash-displace/BucketFunction.hpp"
+#include <hash128.hpp>
+#include "BucketFunction.hpp"
 
 namespace kphf {
 namespace HashDisplace {
