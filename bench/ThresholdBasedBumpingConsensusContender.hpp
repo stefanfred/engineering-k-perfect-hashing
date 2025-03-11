@@ -46,8 +46,6 @@ public:
 	}
 };
 
-constexpr uint64_t N = 10'000'000;
-
 using H = HashDisplaceContender::HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::RiceEncoding>;
 
 H hash_displace(1, 6, 0.95);
@@ -57,7 +55,7 @@ void f(Benchmarks &bench, uint64_t k,
   std::initializer_list<double> overloads) {
 	for (uint64_t threshold_size: threshold_sizes) {
 		for (double overload: overloads) {
-			bench.add(TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size, H(hash_displace)), N));
+			bench.add(TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size, H(hash_displace))));
 			//std::cerr << '.';
 		}
 		//std::cerr << '\n';

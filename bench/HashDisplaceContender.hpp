@@ -38,12 +38,10 @@ public:
 	}
 };
 
-constexpr size_t N = 10'000'000;
-
 template<typename Encoding>
 void h(Benchmarks &bench, size_t k, std::initializer_list<size_t> bucket_sizes) {
 	for (size_t bucket_size: bucket_sizes) {
-		bench.add(TestAndBenchmark(HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size), N));
+		bench.add(TestAndBenchmark(HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size)));
 	}
 }
 

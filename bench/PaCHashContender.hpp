@@ -32,13 +32,11 @@ public:
 	}
 };
 
-constexpr size_t N = 10'000'000;
-
 void benchmark(Benchmarks &bench) {
 	for (int i = 1; i < 200; i++) {
-		bench.add(TestAndBenchmark(PaCHashContender(10, i / 20.0), N));
-		bench.add(TestAndBenchmark(PaCHashContender(100, i / 20.0), N));
-		bench.add(TestAndBenchmark(PaCHashContender(1000, i / 20.0), N));
+		bench.add(TestAndBenchmark(PaCHashContender(10, i / 20.0)));
+		bench.add(TestAndBenchmark(PaCHashContender(100, i / 20.0)));
+		bench.add(TestAndBenchmark(PaCHashContender(1000, i / 20.0)));
 	}
 }
 

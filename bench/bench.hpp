@@ -53,62 +53,12 @@ class bad_hash: public std::runtime_error {
 
 class Benchmark {
 public:
+	static size_t numKeys;
 	virtual void iteration() = 0;
 	virtual void dump() = 0;
 	virtual ~Benchmark() = default;
 };
-
-template<typename Builder>
-class BenchmarkSample: public Benchmark {
-private:
-	std::mt19937_64 rng;
-	stat::Statistics::Builder cons_stats, query_stats, size_stats;
-	Builder builder;
-	uint64_t n, sample;
-
-public:
-	BenchmarkSample(Builder &&builder, uint64_t n, uint64_t sample):
-	  builder(builder), n(n), sample(sample) {}
-
-	void iteration() override {
-		std::vector<Hash128> items(n);
-		for (auto &[hi,lo]: items) hi = rng(), lo = rng();
-
-		const typename Builder::Hash hash =
-		  measure(cons_stats, builder, items);
-		size_stats.add(hash.count_bits());
-
-		std::vector<Hash128> samples(sample);
-		for (Hash128 &h: samples) {
-			h = items[std::uniform_int_distribution<uint64_t>(0, n-1)(rng)];
-		}
-		measure_multi(query_stats, hash, samples);
-	}
-
-	void dump() override {
-		auto construction = cons_stats.build();
-		auto query = query_stats.build();
-		auto size = size_stats.build();
-		std::string name = builder.name();
-		uint64_t k = builder.get_k();
-		std::vector<std::pair<std::string, std::string>> meta = builder.meta();
-		std::cout << name << "(k=" << k;
-		for (auto [k,v]: meta) std::cout << ", " << k << "=" << v;
-		std::cout << "):\n";
-		std::cout << "  Construction time [s]: " << construction << "\n";
-		std::cout << "  Query time [s]:        " << query << "\n";
-		std::cout << "  Size [bit]:            " << size << "\n";
-		std::cout << "RESULT"
-			<< "\talgo=" << name
-			<< "\tn=" << n
-			<< "\tk=" << k
-			<< "\tconstruction=" << construction.mean
-			<< "\tquery=" << query.mean
-			<< "\tsize=" << size.mean;
-		for (auto [k,v]: meta) std::cout << "\t" << k << "=" << v;
-		std::cout << "\n";
-	}
-};
+size_t Benchmark::numKeys = 1'000'000;
 
 template<typename Builder>
 class TestAndBenchmark: public Benchmark {
@@ -116,13 +66,12 @@ private:
 	std::mt19937_64 rng;
 	stat::Statistics::Builder cons_stats, query_stats, size_stats;
 	Builder builder;
-	uint64_t n;
 
 public:
-	TestAndBenchmark(Builder &&builder, uint64_t n): builder(builder), n(n) {}
+	TestAndBenchmark(Builder &&builder): builder(builder) {}
 
 	void iteration() override {
-		std::vector<Hash128> items(n);
+		std::vector<Hash128> items(numKeys);
 		for (auto &[hi,lo]: items) hi = rng(), lo = rng();
 
 		const typename Builder::Hash hash =
@@ -130,9 +79,9 @@ public:
 		size_stats.add(hash.count_bits());
 
 		uint64_t k = builder.get_k();
-		std::vector<uint64_t> counts((n + k - 1) / k);
+		std::vector<uint64_t> counts((numKeys + k - 1) / k);
 #ifndef NDEBUG
-		std::vector<std::vector<Hash128>> inv((n + k - 1) / k);
+		std::vector<std::vector<Hash128>> inv((numKeys + k - 1) / k);
 		for (auto &v: inv) v.reserve(k);
 #endif
 		// TODO: Testing (with counting) and measuring the actual throughput should be two independent steps
@@ -174,7 +123,7 @@ public:
 		std::cout << "  Size [bit]:            " << size << "\n";
 		std::cout << "RESULT"
 			<< "\talgo=" << name
-			<< "\tn=" << n
+			<< "\tn=" << numKeys
 			<< "\tk=" << k
 			<< "\tconstruction=" << construction.mean
 			<< "\tquery=" << query.mean
