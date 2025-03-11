@@ -1,7 +1,7 @@
 #pragma once
 
 #include <bit>
-#include "../sux/bits/SimpleSelectZeroHalf.hpp"
+#include <sux/bits/SimpleSelectZeroHalf.hpp>
 
 namespace kphf {
 namespace PaCHash {

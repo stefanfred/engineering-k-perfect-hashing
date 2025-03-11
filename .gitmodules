@@ -4,3 +4,6 @@
 [submodule "extlib/util"]
 	path = extlib/util
 	url = https://github.com/ByteHamster/Util.git
+[submodule "extlib/sux"]
+	path = extlib/sux
+	url = https://github.com/vigna/sux.git
