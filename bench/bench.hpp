@@ -39,8 +39,8 @@ public:
 		sleep(1); // Cooldown
 		Clock::time_point start = Clock::now();
 		auto hash = builder(items);
-		cons_stats.add(std::chrono::duration<double>(Clock::now() - start).count());
-		size_stats.add(hash.count_bits());
+		cons_stats.add(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count());
+		size_stats.add(1.0 * hash.count_bits() / items.size());
 
 		{
 			std::vector<uint64_t> counts((numKeys + builder.get_k() - 1) / builder.get_k());
@@ -58,7 +58,7 @@ public:
 			size_t result = hash(item);
 			DO_NOT_OPTIMIZE(result);
 		}
-		query_stats.add(std::chrono::duration<double>(Clock::now() - start).count() / items.size());
+		query_stats.add(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - start).count() / items.size());
 	}
 
 	void run() {
@@ -79,16 +79,16 @@ public:
 		std::cout << builder.name() << "(k=" << builder.get_k();
 		for (auto [k,v]: builder.meta()) std::cout << ", " << k << "=" << v;
 		std::cout << "):\n";
-		std::cout << "  Construction time [s]: " << construction << "\n";
-		std::cout << "  Query time [s]:        " << query << "\n";
-		std::cout << "  Size [bit]:            " << size << "\n";
+		std::cout << "  Construction time [ms]: " << construction << "\n";
+		std::cout << "  Query time [ns]:        " << query << "\n";
+		std::cout << "  Size [bit/key]:         " << size << "\n";
 		std::cout << "RESULT"
 			<< "\talgo=" << builder.name()
 			<< "\tn=" << numKeys
 			<< "\tk=" << builder.get_k()
-			<< "\tconstruction=" << construction.mean
-			<< "\tquery=" << query.mean
-			<< "\tsize=" << size.mean;
+			<< "\tconstructionMs=" << construction.mean
+			<< "\tqueryNs=" << query.mean
+			<< "\tsizePerKey=" << size.mean;
 		for (auto [k,v]: builder.meta()) std::cout << "\t" << k << "=" << v;
 		std::cout << std::endl;
 	}
