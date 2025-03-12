@@ -54,6 +54,7 @@ public:
 
 		sleep(1); // Cooldown
 		start = Clock::now();
+		// TODO: Shuffle order of queries to avoid cache effects. Create a query plan
 		for (auto &&item : items) {
 			size_t result = hash(item);
 			DO_NOT_OPTIMIZE(result);

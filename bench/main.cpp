@@ -1,9 +1,10 @@
 #include <tlx/cmdline_parser.hpp>
 
-#include "bench.hpp"
 #include "ThresholdBasedBumpingConsensusContender.hpp"
 #include "HashDisplaceContender.hpp"
 #include "PaCHashContender.hpp"
+#include "RecSplitContender.hpp"
+#include "CmphContender.hpp"
 
 int main(int argc, char **argv) {
     size_t numKeys = 1e6;
@@ -22,6 +23,7 @@ int main(int argc, char **argv) {
 	PaCHashContender::benchmark(numKeys);
 	ThresholdBasedBumpingConsensusContender::benchmark(numKeys);
 	HashDisplaceContender::benchmark(numKeys);
-	// TODO: RecSplit, CMPH
+	CmphContender::benchmark(numKeys);
+	RecSplitContender::benchmark(numKeys);
 	return 0;
 }

@@ -55,8 +55,13 @@ add_library(Kphf::ThresholdBasedBumping ALIAS KphfThresholdBasedBumping)
 
 #################### Benchmarks ####################
 if(PROJECT_IS_TOP_LEVEL)
+    file(GLOB cmphSources extlib/cmph/src/**.c)
+    list(FILTER cmphSources EXCLUDE REGEX ".*cmph/src/(bdz_gen_lookup_table|bm_numbers|sdbm_hash|fnv_hash|djb2_hash|hashtree|buffer_manage|main).c$")
+    add_library(Cmph SHARED ${cmphSources})
+    target_include_directories(Cmph SYSTEM INTERFACE extlib/cmph/src)
+
     add_executable(Benchmark bench/main.cpp)
     target_link_libraries(Benchmark ByteHamsterUtil tlx)
-    target_link_libraries(Benchmark Kphf::PaCHash Kphf::RecSplit Kphf::HashDisplace Kphf::ThresholdBasedBumping)
+    target_link_libraries(Benchmark Kphf::PaCHash Kphf::RecSplit Kphf::HashDisplace Kphf::ThresholdBasedBumping Cmph)
     target_compile_features(Benchmark PRIVATE cxx_std_23)
 endif()
