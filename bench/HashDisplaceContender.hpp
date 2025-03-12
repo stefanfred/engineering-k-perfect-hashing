@@ -39,25 +39,25 @@ public:
 };
 
 template<typename Encoding>
-void h(size_t k, std::initializer_list<size_t> bucket_sizes) {
-	for (size_t bucket_size: bucket_sizes) {
-		TestAndBenchmark(HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size)).run();
+void dispatchBucketSize(size_t numKeys, size_t k, std::initializer_list<size_t> bucket_sizes) {
+	for (size_t bucket_size : bucket_sizes) {
+		TestAndBenchmark(numKeys, HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size)).run();
 	}
 }
 
 template<typename ...Encoding>
-void g(size_t k, std::initializer_list<size_t> bucket_sizes) {
-	(h<Encoding>(k, bucket_sizes), ...);
+void goDispatchEncoder(size_t numKeys, size_t k, std::initializer_list<size_t> bucket_sizes) {
+	(dispatchBucketSize<Encoding>(numKeys, k, bucket_sizes), ...);
 }
 
-void f(size_t k, std::initializer_list<size_t> bucket_sizes) {
-	g<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(k, bucket_sizes);
+void dispatchEncoder(size_t numKeys, size_t k, std::initializer_list<size_t> bucket_sizes) {
+	goDispatchEncoder<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(numKeys, k, bucket_sizes);
 }
 
-void benchmark() {
-	f(1000, {30,40,50,60,70,80,90,100,150,200,250,300,350,400});
-	f(100, {10,20,30,40,50,60,70,80,90,100,110,120});
-	f(10, {5,10,15,20,25,30});
+void benchmark(size_t numKeys) {
+	dispatchEncoder(numKeys, 1000, {30,40,50,60,70,80,90,100,150,200,250,300,350,400});
+	dispatchEncoder(numKeys, 100, {10,20,30,40,50,60,70,80,90,100,110,120});
+	dispatchEncoder(numKeys, 10, {5,10,15,20,25,30});
 }
 
 }

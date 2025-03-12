@@ -32,11 +32,11 @@ public:
 	}
 };
 
-void benchmark() {
+void benchmark(size_t numKeys) {
 	for (int i = 1; i < 200; i++) {
-		TestAndBenchmark(PaCHashContender(10, i / 20.0)).run();
-		TestAndBenchmark(PaCHashContender(100, i / 20.0)).run();
-		TestAndBenchmark(PaCHashContender(1000, i / 20.0)).run();
+		TestAndBenchmark(numKeys, PaCHashContender(10, i / 20.0)).run();
+		TestAndBenchmark(numKeys, PaCHashContender(100, i / 20.0)).run();
+		TestAndBenchmark(numKeys, PaCHashContender(1000, i / 20.0)).run();
 	}
 }
 
