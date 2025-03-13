@@ -198,9 +198,8 @@ auto compute_thresholds(uint64_t k, double lamda, int threshold_size) ->
 	std::vector<std::pair<uint64_t, uint64_t>> errors(max_n+1);
 	for (uint64_t n = 0; n <= max_n; n++) {
 		double e = best_error(n).first;
-		int q;
-		double p = remquo(e, 1.0, &q);
-		errors[n] = {q+1,double_to_u64(p)};
+		uint64_t q = e;
+		errors[n] = {q+1,double_to_u64(e-q)};
 	}
 
 	return {thresholds_final, errors};
