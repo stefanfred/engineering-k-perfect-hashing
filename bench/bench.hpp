@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <algorithm>
 
 #include <hash128.hpp>
 #include "stat.hpp"

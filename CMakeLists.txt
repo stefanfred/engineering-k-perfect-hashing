@@ -49,7 +49,7 @@ add_library(Kphf::HashDisplace ALIAS KphfHashDisplace)
 
 add_library(KphfThresholdBasedBumping INTERFACE)
 target_include_directories(KphfThresholdBasedBumping INTERFACE include/threshold-based-bumping)
-target_link_libraries(KphfThresholdBasedBumping INTERFACE ByteHamsterUtil SimpleRibbon KphfCommon Kphf::HashDisplace)
+target_link_libraries(KphfThresholdBasedBumping INTERFACE ByteHamsterUtil SimpleRibbon Sux KphfCommon Kphf::HashDisplace)
 target_compile_features(KphfThresholdBasedBumping INTERFACE cxx_std_23)
 add_library(Kphf::ThresholdBasedBumping ALIAS KphfThresholdBasedBumping)
 
