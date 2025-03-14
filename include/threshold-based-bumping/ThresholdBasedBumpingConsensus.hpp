@@ -312,7 +312,7 @@ public:
 			uint64_t b = bytehamster::util::fastrange64(h, cur_buckets);
 			auto [seed,tidx] =
 			  consensus.get(b * shared->threshold_size, shared->threshold_size);
-			tidx = decrypt(seed, tidx);
+			tidx = decrypt(seed, tidx, shared->threshold_size);
 			uint64_t f = bytehamster::util::remix(key.lo + seed + i);
 
 			if (f < shared->thresholds[tidx]) return offset + b;
@@ -335,14 +335,12 @@ public:
 	}
 
 private:
-	static inline uint64_t encrypt(uint64_t key, uint64_t tidx) {
-		return tidx;
-		//return (tidx ^ remix(key)) & ((uint64_t(1) << shared->threshold_size) - 1);
+	static inline uint64_t encrypt(uint64_t key, uint64_t tidx, uint64_t threshold_size) {
+		return (tidx ^ bytehamster::util::remix(key)) & ((uint64_t(1) << threshold_size) - 1);
 	}
 
-	static inline uint64_t decrypt(uint64_t key, uint64_t tidx) {
-		return tidx;
-		//return (tidx ^ remix(key)) & ((uint64_t(1) << shared->threshold_size) - 1);
+	static inline uint64_t decrypt(uint64_t key, uint64_t tidx, uint64_t threshold_size) {
+		return (tidx ^ bytehamster::util::remix(key)) & ((uint64_t(1) << threshold_size) - 1);
 	}
 
 	struct Builder {
@@ -433,7 +431,7 @@ private:
 		}
 
 		std::optional<uint64_t> find_next(uint64_t seed, uint64_t prev) {
-			return find(seed, decrypt(seed, prev));
+			return find(seed, decrypt(seed, prev, threshold_size));
 		}
 
 		std::optional<uint64_t> find(uint64_t seed, uint64_t prev) {
@@ -458,7 +456,7 @@ private:
 					for (uint64_t x = idx; x < k; x++) {
 						spots->push_back(offset + cur_bucket - 1);
 					}
-					return encrypt(seed, tidx);
+					return encrypt(seed, tidx, threshold_size);
 				}
 			}
 			return {};
