@@ -1,6 +1,9 @@
 #pragma once
 
 #include <HashDisplace.hpp>
+#include <OptimalBucketFunction.hpp>
+#include <CompactEncoding.hpp>
+#include <RiceEncoding.hpp>
 #include "bench.hpp"
 
 namespace HashDisplaceContender {
