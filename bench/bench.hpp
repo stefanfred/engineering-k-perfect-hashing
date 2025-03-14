@@ -53,12 +53,13 @@ class bad_hash: public std::runtime_error {
 
 class Benchmark {
 public:
-	static size_t numKeys;
+	static size_t numKeys, numQueries;
 	virtual void iteration() = 0;
 	virtual void dump() = 0;
 	virtual ~Benchmark() = default;
 };
 size_t Benchmark::numKeys = 1'000'000;
+size_t Benchmark::numQueries = 100'000;
 
 template<typename Builder>
 class TestAndBenchmark: public Benchmark {
@@ -84,17 +85,14 @@ public:
 		std::vector<std::vector<Hash128>> inv((numKeys + k - 1) / k);
 		for (auto &v: inv) v.reserve(k);
 #endif
-		// TODO: Testing (with counting) and measuring the actual throughput should be two independent steps
-		measure_multi(query_stats, [&](Hash128 item) {
+		for (Hash128 item: items) {
 			uint64_t r = hash(item);
 			if (r >= counts.size()) throw bad_hash("hash value out of bounds");
 			counts[r]++;
 #ifndef NDEBUG
 			inv[r].push_back(item);
 #endif
-			return r;
-		}, items);
-
+		}
 		for (size_t i = 0; i < counts.size(); i++) {
 			if (counts[i] > k) {
 #ifndef NDEBUG
@@ -106,6 +104,11 @@ public:
 				throw bad_hash("hash not k-perfect");
 			}
 		}
+
+		std::vector<Hash128> queries(numQueries);
+		std::uniform_int_distribution<size_t> distr(0, numQueries-1);
+		for (Hash128 &query: queries) query = items[distr(rng)];
+		measure_multi(query_stats, hash, queries);
 	}
 
 	void run() {
