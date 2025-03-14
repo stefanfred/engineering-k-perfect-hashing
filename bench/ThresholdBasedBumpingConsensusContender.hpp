@@ -6,22 +6,21 @@
 
 namespace ThresholdBasedBumpingConsensusContender {
 
-template<typename Builder>
 struct ThresholdBasedBumpingConsensusContender {
 private:
 	uint64_t k;
 	double overload;
 	int threshold_size;
-	Builder phf_builder;
-	kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensusBuilder<Builder> builder;
-
+	using FallbackPhf = HashDisplaceContender::HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::RiceEncoding>;
+	FallbackPhf fallback_phf;
+	kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensusBuilder<FallbackPhf> builder;
 public:
-	using Hash = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus<typename Builder::Hash>;
+	using Hash = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus<FallbackPhf::Hash>;
 
-	ThresholdBasedBumpingConsensusContender(uint64_t k, double overload, int threshold_size, Builder &&phf_builder):
+	ThresholdBasedBumpingConsensusContender(uint64_t k, double overload, int threshold_size):
 	  k(k), overload(overload), threshold_size(threshold_size),
-	  phf_builder(phf_builder),
-	  builder(k, overload, threshold_size, std::move(phf_builder)) {}
+	  fallback_phf(1, 6, 0.95),
+	  builder(k, overload, threshold_size, std::move(fallback_phf)) {}
 
 	Hash operator()(const std::vector<Hash128> &items) const {
 		return builder(items);
@@ -37,40 +36,26 @@ public:
 		std::vector<std::pair<std::string, std::string>> res = {
 			{ "overload", std::to_string(overload) },
 			{ "threshold_size", std::to_string(threshold_size) },
-			{ "phf", phf_builder.name() },
+			{ "phf", fallback_phf.name() },
 		};
-		for (auto &[name, value]: phf_builder.meta()) {
+		for (auto &[name, value]: fallback_phf.meta()) {
 			res.emplace_back("phf_" + name, value);
 		}
 		return res;
 	}
 };
 
-using H = HashDisplaceContender::HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::RiceEncoding>;
-
-H hash_displace(1, 6, 0.95);
-
-void f(uint64_t k,
-  std::initializer_list<uint64_t> threshold_sizes,
-  std::initializer_list<double> overloads) {
+void dispatchThresholdsAndOverloads(uint64_t k,
+		std::initializer_list<uint64_t> threshold_sizes, std::initializer_list<double> overloads) {
 	for (uint64_t threshold_size: threshold_sizes) {
 		for (double overload: overloads) {
-			TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size, H(hash_displace))).run();
+			TestAndBenchmark(ThresholdBasedBumpingConsensusContender(k, overload, threshold_size)).run();
 		}
 	}
 }
 
 void benchmark(size_t k) {
 	size_t x = log2(2 * std::numbers::pi * k) / 2;
-	f(k, {x,x+1,x+2}, {1.05,1.10,1.20,1.30,1.40,1.50,1.60,1.80,2.00,2.20});
-/*
-	//f<100, 6, 7, 8>(bench);
-	//f<1000, 8, 9, 10, 11>(bench);
-	//f<100, 7,8,9>(bench);
-	//f(bench, 100, {6});
-	f(10, {3,4,5}, {1.85,1.90,1.95,2.00,2.05});
-	f(100, {5,6,7}, {1.30,1.35,1.40});
-	//f(bench, 1000, {8,9,10,11});
-*/
+	dispatchThresholdsAndOverloads(k, {x,x+1,x+2}, {1.05,1.10,1.20,1.30,1.40,1.50,1.60,1.80,2.00,2.20});
 }
 };

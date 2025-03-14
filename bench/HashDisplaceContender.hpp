@@ -42,27 +42,28 @@ public:
 };
 
 template<typename Encoding>
-void h(size_t k, size_t bucket_size) {
+void dispatchBucketSize(size_t k, size_t bucket_size) {
 	TestAndBenchmark(HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(k, bucket_size)).run();
 }
 
 template<typename ...Encoding>
-void g(size_t k, size_t bucket_size) {
-	(h<Encoding>(k, bucket_size), ...);
+void goDispatchEncoder(size_t k, size_t bucket_size) {
+	(dispatchBucketSize<Encoding>(k, bucket_size), ...);
 }
 
-void f(size_t k, size_t bucket_size) {
-	g<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(k, bucket_size);
+void dispatchEncoder(size_t k, size_t bucket_size) {
+	goDispatchEncoder<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(k, bucket_size);
 }
 
 void benchmark(size_t k) {
+	/* There is no good reason for this formula. */
 	double b = sqrt(k) * log2(2 * std::numbers::pi * k) * 1.25;
-	for (int i = 1; i <= 10; i++) f(k, size_t(b * i / 10));
-/*
-	f(1000, {30,40,50,60,70,80,90,100,150,200,250,300,350,400});
-	f(100, {10,20,30,40,50,60,70,80,90,100,110,120});
-	f(10, {5,10,15,20,25,30});
-*/
+	for (int i = 1; i <= 10; i++) dispatchEncoder(k, size_t(b * i / 10));
+#if 0
+	dispatchEncoder(1000, {30,40,50,60,70,80,90,100,150,200,250,300,350,400});
+	dispatchEncoder(100, {10,20,30,40,50,60,70,80,90,100,110,120});
+	dispatchEncoder(10, {5,10,15,20,25,30});
+#endif
 }
 
 }

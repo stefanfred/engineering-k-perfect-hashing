@@ -1,8 +1,7 @@
 #pragma once
 
-#include <numeric>
+#include <limits>
 #include <cmath>
-#include <iostream>
 
 namespace stat {
 

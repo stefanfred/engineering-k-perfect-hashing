@@ -10,3 +10,6 @@
 [submodule "extlib/tlx"]
 	path = extlib/tlx
 	url = https://github.com/tlx/tlx.git
+[submodule "extlib/cmph"]
+	path = extlib/cmph
+	url = https://github.com/bonitao/cmph.git
