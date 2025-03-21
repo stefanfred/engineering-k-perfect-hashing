@@ -14,7 +14,7 @@ class RiceEncoding {
     public:
         RiceEncoding() = default;
 
-        RiceEncoding(const std::vector<uint64_t> &seeds) {
+        explicit RiceEncoding(const std::vector<uint64_t> &seeds) {
             double avg = (double) std::accumulate(seeds.begin(), seeds.end(), uint64_t(0)) / seeds.size();
             double p = 1 / (avg + 1);
             if (p == 1) {

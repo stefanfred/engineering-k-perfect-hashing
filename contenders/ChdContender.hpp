@@ -47,7 +47,7 @@ class ChdContender : public Contender {
             cmph_config_t *config = cmph_config_new(source);
             cmph_config_set_algo(config, minimal ? CMPH_CHD : CMPH_CHD_PH);
             cmph_config_set_verbosity(config, 0);
-            cmph_config_set_keys_per_bin(config, k);
+            cmph_config_set_keys_per_bin(config, k_contender);
             cmph_config_set_graphsize(config, c);
             mphf = cmph_new(config);
 

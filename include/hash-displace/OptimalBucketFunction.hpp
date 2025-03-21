@@ -19,7 +19,6 @@ constexpr double expected_truncated(int maxEx, double lambda, bool weighted) {
     return exp;
 }
 
-
 constexpr std::pair<double, double> alphaAndRelSize(int k, double lambda) {
     double alphaNotFull = expected_truncated(k, lambda, true) / k;
     double prob = expected_truncated(k, lambda, false);
@@ -111,7 +110,7 @@ class OptimalBucketFunction {
                     return optimal_bucket_function::queryFulcrums(*fulcrums, hash, bucket_count);
                 }
 
-                size_t count_bits() const {
+                [[nodiscard]] size_t count_bits() const {
                     return 8 * sizeof(*this);
                 }
 

@@ -3,15 +3,15 @@
 #include <kRecSplit.hpp>
 #include "Contender.h"
 
-template <size_t k_templ, size_t leafSize, sux::function::krecsplit::BumpStrategy bumpStrategy = sux::function::krecsplit::BumpStrategy::RANK_RECURSE>
+template <size_t k, size_t leafSize, sux::function::krecsplit::BumpStrategy bumpStrategy = sux::function::krecsplit::BumpStrategy::RANK_RECURSE>
 class KRecSplitContender : public Contender {
     public:
-    using kPHF = sux::function::krecsplit::RecSplit<k_templ, leafSize, bumpStrategy>;
+    using kPHF = sux::function::krecsplit::RecSplit<k, leafSize, bumpStrategy>;
     kPHF *kphf = nullptr;
     size_t bucketSize;
 
         KRecSplitContender(size_t N, size_t bucketSize)
-                : Contender(N, k_templ, 1.0), bucketSize(bucketSize) {
+                : Contender(N, k, 1.0), bucketSize(bucketSize) {
         }
 
         ~KRecSplitContender() override {

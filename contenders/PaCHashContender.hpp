@@ -24,7 +24,7 @@ class PaCHashContender : public Contender {
             for (auto &key : keys) {
                 keysHashed.emplace_back(Hash128(key));
             }
-            kphf = kphf::PaCHash::PaCHash(k, a, keysHashed);
+            kphf = kphf::PaCHash::PaCHash(k_contender, a, keysHashed);
         }
 
         size_t sizeBits() override {

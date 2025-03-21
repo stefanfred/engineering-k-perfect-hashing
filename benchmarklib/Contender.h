@@ -19,15 +19,15 @@ class Contender {
         static bool skipTests;
 
         const size_t N;
-        const size_t k;
+        const size_t k_contender;
         const double loadFactor;
         const double mByN;
         const size_t M;
         long constructionTimeMicroseconds = 0;
         long queryTimeMilliseconds = 0;
 
-        Contender(size_t N, size_t k, double loadFactor)
-                : N(N), k(k), loadFactor(loadFactor), mByN(1.0 / loadFactor), M((N + k - 1) / k * mByN) {
+        Contender(const size_t N, const size_t k, const double loadFactor)
+                : N(N), k_contender(k), loadFactor(loadFactor), mByN(1.0 / loadFactor), M((N + k - 1) / k * mByN) {
         }
 
         virtual ~Contender() = default;
@@ -112,7 +112,7 @@ class Contender {
             double bitsPerElement = (double) sizeBits() / N;
             std::cout << "RESULT"
                       << " name=" << name()
-                      << " k=" << k
+                      << " k=" << k_contender
                       << " bitsPerElement=" << bitsPerElement
                       << " constructionTimeMilliseconds=" << (constructionTimeMicroseconds < 10000
                                             ? std::to_string(0.001 * constructionTimeMicroseconds)
@@ -150,7 +150,7 @@ class Contender {
                             << " but maximum should be " << (M*eps) << " (actually " << M << ")" << std::endl;
                     throw std::logic_error("Range wrong");
                 }
-                if (taken[retrieved] >= k) {
+                if (taken[retrieved] >= k_contender) {
                     std::cout<<"Error: More than k collisions: Key #"<<i<<"/"<<N<<" resulted in "<<retrieved<<": "<<keys[i]<<std::endl;
                     std::cout<<"Aborting query"<<std::endl;
                     throw std::logic_error("Collision");

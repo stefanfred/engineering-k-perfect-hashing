@@ -26,7 +26,7 @@ class ThresholdBasedBumpingConsensusContender : public Contender {
             for (auto &key : keys) {
                 keysHashed.emplace_back(Hash128(key));
             }
-            kphf = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus(k, keysHashed, overload, thresholdSize);
+            kphf = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus(k_contender, keysHashed, overload, thresholdSize);
         }
 
         size_t sizeBits() override {

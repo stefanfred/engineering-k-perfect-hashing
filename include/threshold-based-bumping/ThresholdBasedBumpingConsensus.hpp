@@ -271,7 +271,7 @@ private:
 	std::shared_ptr<SharedData> shared;
 	uint64_t n;
 	std::vector<std::pair<uint64_t, Consensus>> layers;
-    using PHF = kphf::HashDisplace::HashDisplace<kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::CompactEncoding>;
+    using PHF = kphf::HashDisplace::HashDisplace<1, kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::CompactEncoding>;
 	PHF phf;
 	mutable sux::bits::EliasFano<> gaps;
 
@@ -472,7 +472,7 @@ private:
 		bumped_keys += keys.size();
 #endif
 
-		phf = PHF(1, keys, 5);
+		phf = PHF(keys, 5);
 		std::vector<uint64_t> actual_spots;
 		for (Hash128 k: keys) {
 			uint64_t h = phf(k);

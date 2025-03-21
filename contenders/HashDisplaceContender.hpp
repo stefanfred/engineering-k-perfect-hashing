@@ -3,13 +3,13 @@
 #include <HashDisplace.hpp>
 #include "Contender.h"
 
-template<typename BucketFunction, typename Encoding>
+template<size_t k, typename BucketFunction, typename Encoding>
 class HashDisplaceContender : public Contender {
     public:
-        kphf::HashDisplace::HashDisplace<BucketFunction, Encoding> kphf;
+        kphf::HashDisplace::HashDisplace<k, BucketFunction, Encoding> kphf;
         size_t bucketSize;
 
-        HashDisplaceContender(size_t N, size_t k, size_t bucketSize)
+        HashDisplaceContender(const size_t N, const size_t bucketSize)
                 : Contender(N, k, 1.0), bucketSize(bucketSize) {
         }
 
@@ -27,7 +27,7 @@ class HashDisplaceContender : public Contender {
             for (auto &key : keys) {
                 keysHashed.emplace_back(Hash128(key));
             }
-            kphf = kphf::HashDisplace::HashDisplace<BucketFunction, Encoding>(k, keysHashed, bucketSize);
+            kphf = kphf::HashDisplace::HashDisplace<k, BucketFunction, Encoding>(keysHashed, bucketSize);
         }
 
         size_t sizeBits() override {

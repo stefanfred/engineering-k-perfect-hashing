@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <vector>
+#include <cstring>
 
 namespace kphf::HashDisplace {
 class CompactEncoding {
@@ -10,7 +11,7 @@ class CompactEncoding {
     public:
         CompactEncoding() = default;
 
-        CompactEncoding(const std::vector<uint64_t> &seeds) {
+        explicit CompactEncoding(const std::vector<uint64_t> &seeds) {
             bits_per_bucket = std::bit_width(*std::ranges::max_element(seeds));
             encoding.resize((bits_per_bucket * seeds.size() + 7) / 8 + 7);
             encoding.shrink_to_fit();
@@ -30,7 +31,7 @@ class CompactEncoding {
             return (word >> (off % 8u)) & ((1ul << bits_per_bucket) - 1u);
         }
 
-        size_t count_bits() const {
+        [[nodiscard]] size_t count_bits() const {
             return 8 * sizeof(*this)
                    + encoding.capacity() * 8;
         }

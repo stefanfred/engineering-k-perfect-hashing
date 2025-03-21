@@ -1,19 +1,17 @@
 #include <KRecSplitContender.hpp>
 
-#include "PaCHashContender.hpp"
+#include "DispatchK.h"
 
-void kRecSplitContenderRunner(size_t N, size_t k) {
-    if (k == 0) {
-        throw std::invalid_argument("k must be greater than 0");
+template <size_t k>
+struct KRecSplitContenderRunner {
+    void operator() (size_t N) const {
+        // TODO: Why does RecSplit overflow with k=10? Is this a wrong configuration?
+        if constexpr (k <= 8) {
+            {KRecSplitContender<k, k>(N, 2000).run();}
+        }
     }
-    // TODO: Make this nicer using templated dispatch function.
-    if (k == 2) {
-        {KRecSplitContender<2, 2>(N, 2000).run();}
-    } else if (k == 4) {
-        {KRecSplitContender<4, 4>(N, 2000).run();}
-    } else if (k == 8) {
-        // TODO: These are probably wrong configurations. They are super slow.
-        {KRecSplitContender<8, 8>(N, 2000).run();}
-    }
-    // TODO: Larger k cause overflow in template evaluation
+};
+
+void kRecSplitContenderRunner(const size_t N, const size_t k) {
+    dispatchK<KRecSplitContenderRunner>(k, N);
 }

@@ -43,7 +43,7 @@ void dump_stats() {
 }
 #endif
 
-template<typename BucketFunction, typename Encoding>
+template<size_t k, typename BucketFunction, typename Encoding>
 class HashDisplace {
         uint64_t nbuckets;
         uint64_t nbins;
@@ -57,7 +57,7 @@ class HashDisplace {
             return bytehamster::util::fastrange64(bytehamster::util::remix(item.lo + seed), nbins);
         }
 
-        size_t count_bits() const {
+        [[nodiscard]] size_t count_bits() const {
             return 8 * sizeof(*this)
                    + (bucket_function.count_bits() - 8 * sizeof(bucket_function))
                    + (seeds.count_bits() - 8 * sizeof(seeds));
@@ -66,7 +66,7 @@ class HashDisplace {
         HashDisplace() : nbuckets(0), nbins(0), bucket_function(BucketFunction(8)(0, 0, 1.0)) {
         }
 
-        HashDisplace(size_t k, const std::vector<Hash128> &items, uint64_t bucket_size, double load_factor = 1.0)
+        HashDisplace(const std::vector<Hash128> &items, uint64_t bucket_size, double load_factor = 1.0)
             : nbuckets((items.size() + bucket_size - 1) / bucket_size),
               nbins(ceil(items.size() / load_factor / k)),
               bucket_function(BucketFunction(k)(items.size(), nbuckets, load_factor)) {
@@ -84,7 +84,7 @@ class HashDisplace {
             std::vector<std::pair<uint64_t, uint64_t> >
                     sorted_items(r.begin(), r.end());
             ips2ra::sort(sorted_items.begin(), sorted_items.end(),
-                [](std::pair<uint64_t, uint64_t> k) -> uint64_t { return k.first; });
+                [](const std::pair<uint64_t, uint64_t> &key) -> uint64_t { return key.first; });
 
             using Iter = decltype(sorted_items)::iterator;
             using Range = std::ranges::subrange<Iter>;

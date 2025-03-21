@@ -3,28 +3,25 @@
 #include <OptimalBucketFunction.hpp>
 #include <CompactEncoding.hpp>
 #include <RiceEncoding.hpp>
+#include "DispatchK.h"
 
-template<typename Encoding>
-void dispatchHashDisplaceBucketSize(size_t N, size_t k, size_t bucket_size) {
-    { HashDisplaceContender<kphf::HashDisplace::OptimalBucketFunction, Encoding>(N, k, bucket_size).run(); }
-}
+template <size_t k>
+struct HashDisplaceContenderRunner {
+    void operator() (size_t N) const {
+        using namespace kphf::HashDisplace;
+        // TODO There is no good reason for this formula
+        const double b = sqrt(k) * log2(2 * std::numbers::pi * k) * 1.25;
+        for (size_t i = 1; i <= 10; i++) {
+            size_t bucketSize = (b * i) / 10;
+            HashDisplaceContender<k, OptimalBucketFunction, CompactEncoding>(N, bucketSize).run();
+            HashDisplaceContender<k, OptimalBucketFunction, RiceEncoding>(N, bucketSize).run();
+        }
+    }
+};
 
-template<typename ...Encoding>
-void goDispatchHashDisplaceEncoder(size_t N, size_t k, size_t bucket_size) {
-    (dispatchHashDisplaceBucketSize<Encoding>(N, k, bucket_size), ...);
-}
-
-void dispatchHashDisplaceEncoder(size_t N, size_t k, size_t bucket_size) {
-    goDispatchHashDisplaceEncoder<kphf::HashDisplace::CompactEncoding, kphf::HashDisplace::RiceEncoding>(N, k, bucket_size);
-}
-
-void hashDisplaceContenderRunner(size_t N, size_t k) {
+void hashDisplaceContenderRunner(const size_t N, const size_t k) {
     if (k == 0) {
         throw std::invalid_argument("k must be greater than 0");
     }
-    /* There is no good reason for this formula. */
-    double b = sqrt(k) * log2(2 * std::numbers::pi * k) * 1.25;
-    for (int i = 1; i <= 10; i++) {
-        dispatchHashDisplaceEncoder(N, k, size_t(b * i / 10));
-    }
+    dispatchK<HashDisplaceContenderRunner>(k, N);
 }
