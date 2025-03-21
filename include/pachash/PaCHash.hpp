@@ -55,6 +55,9 @@ private:
 	  n_buckets(n_buckets), ef(std::move(ef)), ribbon(std::move(ribbon)) {}
 
 public:
+	PaCHash() : n_buckets(0) {
+	}
+
 	PaCHash(int k, double bucket_size, const std::vector<Hash128> &keys):
 	  PaCHash(std::move(build(k, bucket_size, keys))) {}
 

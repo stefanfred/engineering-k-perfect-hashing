@@ -24,6 +24,9 @@ private:
 	  lower(std::move(lower)) {}
 
 public:
+	EliasFano() {
+	}
+
 	EliasFano(const std::vector<uint64_t> &items):
 	  EliasFano(std::move(build(items))) {}
 
