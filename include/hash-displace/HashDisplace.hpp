@@ -47,20 +47,15 @@ void dump_stats() {
 #endif
 
 template<typename BucketFunction, typename Encoding>
-class HashDisplaceBuilder;
-
-template<typename BucketFunction, typename Encoding>
 class HashDisplace {
 private:
+	uint64_t nbuckets;
 	uint64_t nbins;
 	BucketFunction::Instance bucket_function;
 	Encoding seeds;
 
-	HashDisplace(uint64_t nbins, BucketFunction::Instance &&bucket_function,
-	  Encoding &&seeds): nbins(nbins), bucket_function(std::move(bucket_function)),
-	  seeds(std::move(seeds)) {}
-
 public:
+
 	uint64_t operator()(Hash128 item) const {
 		uint64_t bucket = bucket_function(item.hi);
 		uint64_t seed = seeds[bucket];
@@ -73,36 +68,21 @@ public:
 		  + (seeds.count_bits() - 8 * sizeof(seeds));
 	}
 
-	friend class HashDisplaceBuilder<BucketFunction, Encoding>;
-};
+	HashDisplace() : nbuckets(0), nbins(0), bucket_function(BucketFunction(8)(0, 0, 1.0)) {
+	}
 
-template<typename BucketFunction, typename Encoding>
-class HashDisplaceBuilder {
-private:
-	uint64_t k;
-	BucketFunction bucket_function;
-
-public:
-	HashDisplaceBuilder(uint64_t k): k(k), bucket_function(k) {}
-
-	HashDisplace<BucketFunction, Encoding> operator()(
-		const std::vector<Hash128> &items,
-		uint64_t bucket_size,
-		double load_factor = 1.0
-	) const {
+	HashDisplace(size_t k, const std::vector<Hash128> &items, uint64_t bucket_size, double load_factor = 1.0)
+			: nbuckets((items.size() + bucket_size - 1) / bucket_size),
+			  nbins(ceil(items.size() / load_factor / k)),
+			  bucket_function(BucketFunction(k)(items.size(), nbuckets, load_factor)) {
 		assert(bucket_size > 0);
 		assert(0.0 <= load_factor && load_factor <= 1.0);
 
 		if (items.empty()) {
-			return HashDisplace<BucketFunction, Encoding>(0,
-			  bucket_function(0, 0, 1.0),
-			  Encoding(std::vector<uint64_t> {}));
+			return;
 		}
 
-		uint64_t nbuckets = (items.size() + bucket_size - 1) / bucket_size;
-		uint64_t nbins = ceil(items.size() / load_factor / k);
-		typename BucketFunction::Instance bf_instance =
-		  bucket_function(items.size(), nbuckets, load_factor);
+		typename BucketFunction::Instance &bf_instance = bucket_function;
 
 		auto r = std::views::transform(items,
 		  [&bf_instance](Hash128 item) -> std::pair<uint64_t, uint64_t> {
@@ -160,9 +140,8 @@ public:
 			*stats_it++ += seed;
 #endif
 		}
-		Encoding seeds(seeds_vec);
-
-		return HashDisplace<BucketFunction, Encoding>(nbins, std::move(bf_instance), std::move(seeds));
+		seeds = Encoding(seeds_vec);
+		bucket_function = bf_instance;
 	}
 };
 

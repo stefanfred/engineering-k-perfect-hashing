@@ -1,6 +1,7 @@
 #include <tlx/cmdline_parser.hpp>
 
 #include "ChdContender.hpp"
+#include "HashDisplaceContender.hpp"
 
 int main(int argc, char** argv) {
     double loadFactor = 0.8;
@@ -25,6 +26,9 @@ int main(int argc, char** argv) {
     }
     if (chd) {
         chdContenderRunner(N, k, 0.95);
+    }
+    if (hashdisplace) {
+        hashDisplaceContenderRunner(N, k);
     }
     return 0;
 }
