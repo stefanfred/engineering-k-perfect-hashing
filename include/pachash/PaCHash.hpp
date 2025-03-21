@@ -13,8 +13,7 @@
 #include <hash128.hpp>
 #include "EliasFano.hpp"
 
-namespace kphf {
-namespace PaCHash {
+namespace kphf::PaCHash {
 
 #ifdef STATS
 struct Config {
@@ -138,4 +137,4 @@ private:
 };
 
 }
-}
+

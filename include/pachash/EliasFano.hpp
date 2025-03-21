@@ -3,8 +3,7 @@
 #include <bit>
 #include <sux/bits/SimpleSelectZeroHalf.hpp>
 
-namespace kphf {
-namespace PaCHash {
+namespace kphf::PaCHash {
 
 // TODO: Benchmark bytehamster::util::EliasFano to see which one is faster.
 //   My guess would be that the one from the util library might be faster and more space-efficient because
@@ -92,4 +91,4 @@ private:
 };
 
 }
-}
+

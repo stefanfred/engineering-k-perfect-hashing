@@ -21,6 +21,7 @@
 #include <hash128.hpp>
 #include "consensus.hpp"
 
+// TODO Is this still needed?
 #if 0
 /* highly illegal hack */
 namespace tlx {
@@ -36,9 +37,8 @@ namespace tlx {
 };
 #endif
 
-namespace kphf {
 // TODO: Add non-consensus variant as well
-namespace ThresholdBasedBumpingConsensus {
+namespace kphf::ThresholdBasedBumpingConsensus {
 
 template<uint64_t n_thresholds>
 constexpr std::array<uint64_t, n_thresholds>
@@ -490,4 +490,4 @@ private:
 };
 
 }
-}
+

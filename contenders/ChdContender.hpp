@@ -4,6 +4,8 @@
 
 #include <utility>
 #undef MAX_BUCKET_SIZE
+#include <cassert>
+
 #include "Contender.h"
 
 class ChdContender : public Contender {
@@ -11,13 +13,13 @@ class ChdContender : public Contender {
         cmph_t *mphf = nullptr;
         cmph_io_adapter_t *source = nullptr;
         const char **data;
-        double c;
         int keysPerBucket;
         bool minimal;
 
-        ChdContender(size_t N, size_t k, double loadFactor, double c, int keysPerBucket, bool minimal)
-                : Contender(N, k, minimal ? 1.0 : loadFactor), c(c), keysPerBucket(keysPerBucket), minimal(minimal) {
+        ChdContender(size_t N, size_t k, double loadFactor, int keysPerBucket, bool minimal)
+                : Contender(N, k, minimal ? 1.0 : loadFactor), keysPerBucket(keysPerBucket), minimal(minimal) {
             data = static_cast<const char **>(malloc(N * sizeof(char*)));
+            assert(1 <= keysPerBucket && keysPerBucket <= 15);
         }
 
         ~ChdContender() override {
@@ -30,7 +32,7 @@ class ChdContender : public Contender {
 
         std::string name() override {
             return std::string("cmph-CHD")
-                    + " c=" + std::to_string(c);
+                    + " keysPerBucket=" + std::to_string(keysPerBucket);
         }
 
         void beforeConstruction(const std::vector<std::string> &keys) override {
@@ -48,7 +50,8 @@ class ChdContender : public Contender {
             cmph_config_set_algo(config, minimal ? CMPH_CHD : CMPH_CHD_PH);
             cmph_config_set_verbosity(config, 0);
             cmph_config_set_keys_per_bin(config, k_contender);
-            cmph_config_set_graphsize(config, c);
+            cmph_config_set_graphsize(config, loadFactor);
+            cmph_config_set_b(config, keysPerBucket);
             mphf = cmph_new(config);
 
             cmph_config_destroy(config);
