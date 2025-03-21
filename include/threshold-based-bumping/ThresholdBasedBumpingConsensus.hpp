@@ -14,6 +14,9 @@
 #include <sux/bits/EliasFano.hpp>
 #include <ips2ra.hpp>
 #include <bytehamster/util/Function.h>
+#include <HashDisplace.hpp>
+#include <OptimalBucketFunction.hpp>
+#include <CompactEncoding.hpp>
 
 #include <hash128.hpp>
 #include "consensus.hpp"
@@ -263,47 +266,17 @@ struct SharedData {
 	}
 };
 
-template<typename PHF>
-class ThresholdBasedBumpingConsensus;
-
-template<typename PHFBuilder>
-class ThresholdBasedBumpingConsensusBuilder {
-private:
-	std::shared_ptr<SharedData> inner;
-	PHFBuilder phf_builder;
-
-public:
-	using PHF = std::invoke_result_t<PHFBuilder, const std::vector<Hash128> &>;
-
-	ThresholdBasedBumpingConsensusBuilder(uint64_t k, double overload,
-	  int threshold_size, PHFBuilder &&phf_builder):
-	  inner(new SharedData(k, overload, threshold_size)),
-	  phf_builder(std::move(phf_builder)) {}
-
-	auto operator()(const std::vector<Hash128> &keys) const
-	  -> ThresholdBasedBumpingConsensus<PHF> {
-		return ThresholdBasedBumpingConsensus<PHF>::build(keys, inner, phf_builder);
-	}
-};
-
-template<typename PHF>
 class ThresholdBasedBumpingConsensus {
 private:
 	std::shared_ptr<SharedData> shared;
 	uint64_t n;
 	std::vector<std::pair<uint64_t, Consensus>> layers;
+    using PHF = kphf::HashDisplace::HashDisplace<kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::CompactEncoding>;
 	PHF phf;
 	mutable sux::bits::EliasFano<> gaps;
 
-	ThresholdBasedBumpingConsensus(std::shared_ptr<SharedData> &&shared,
-	  uint64_t n,
-	  std::vector<std::pair<uint64_t, Consensus>> &&layers,
-	  PHF &&phf,
-	  sux::bits::EliasFano<> &&gaps): shared(std::move(shared)), n(n),
-	  layers(std::move(layers)),
-	  phf(std::move(phf)), gaps(std::move(gaps)) {}
-
 public:
+
 	uint64_t operator()(Hash128 key) const {
 		uint64_t offset = 0;
 		for (uint64_t i = 0; i < layers.size(); i++) {
@@ -463,18 +436,15 @@ private:
 		}
 	};
 
-	// TODO: Why is there this static build function instead of just a constructor?
-	template<typename F>
-	static ThresholdBasedBumpingConsensus build(
-	  std::vector<Hash128> keys,
-	  std::shared_ptr<SharedData> shared,
-	  F &&build_phf) {
-		uint64_t n = keys.size();
-		uint64_t k = shared->k;
+	public:
+	ThresholdBasedBumpingConsensus()
+		: n(0), shared(new SharedData(8, 2.0, 3)), gaps({}, 0) {
+	}
+
+    ThresholdBasedBumpingConsensus(size_t k, std::vector<Hash128> &keys, double overload, size_t thresholdSize)
+            : n(keys.size()), shared(new SharedData(k, overload, thresholdSize)), gaps({}, 0) {
 		double overload_bucket_size = k * shared->overload;
 		uint64_t total_buckets = (n + k - 1) / k;
-
-		std::vector<std::pair<uint64_t, Consensus>> layers;
 
 #ifdef STATS
 		total_keys += n;
@@ -502,7 +472,7 @@ private:
 		bumped_keys += keys.size();
 #endif
 
-		PHF phf = std::forward<F>(build_phf)(std::as_const(keys));
+		phf = PHF(1, keys, 5);
 		std::vector<uint64_t> actual_spots;
 		for (Hash128 k: keys) {
 			uint64_t h = phf(k);
@@ -515,18 +485,8 @@ private:
 			if (x) ++it;
 			x = v;
 		}
-
-		return ThresholdBasedBumpingConsensus(
-			std::move(shared),
-			n,
-			std::move(layers),
-			std::move(phf),
-			sux::bits::EliasFano<>(actual_spots, total_buckets)
-		);
+		gaps = sux::bits::EliasFano<>(actual_spots, total_buckets);
 	}
-
-	template<typename T>
-	friend class ThresholdBasedBumpingConsensusBuilder;
 };
 
 }
