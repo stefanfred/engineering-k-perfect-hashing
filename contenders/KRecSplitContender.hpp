@@ -1,0 +1,50 @@
+#pragma once
+
+#include <kRecSplit.hpp>
+#include "Contender.h"
+
+template <size_t k_templ, size_t leafSize, sux::function::krecsplit::BumpStrategy bumpStrategy = sux::function::krecsplit::BumpStrategy::RANK_RECURSE>
+class KRecSplitContender : public Contender {
+    public:
+    using kPHF = sux::function::krecsplit::RecSplit<k_templ, leafSize, bumpStrategy>;
+    kPHF *kphf;
+    size_t bucketSize;
+
+        KRecSplitContender(size_t N, size_t bucketSize)
+                : Contender(N, k_templ, 1.0), bucketSize(bucketSize) {
+        }
+
+        ~KRecSplitContender() {
+            delete kphf;
+        }
+
+        std::string name() override {
+            return std::string("kRecSplit")
+                    + " leafSize=" + std::to_string(leafSize)
+                    + " bucketSize=" + std::to_string(bucketSize);
+        }
+
+        void construct(const std::vector<std::string> &keys) override {
+            kphf = new kPHF(keys, bucketSize);
+        }
+
+        size_t sizeBits() override {
+            return kphf->bitCount();
+        }
+
+        void performQueries(const std::span<std::string> keys) override {
+            auto x = [&] (std::string &key) {
+                return kphf->operator()(key);
+            };
+            doPerformQueries(keys, x);
+        }
+
+        void performTest(const std::span<std::string> keys) override {
+            auto x = [&] (std::string &key) {
+                return kphf->operator()(key);
+            };
+            doPerformTest(keys, x);
+        }
+};
+
+void kRecSplitContenderRunner(size_t N, size_t k);

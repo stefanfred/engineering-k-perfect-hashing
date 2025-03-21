@@ -4,6 +4,7 @@
 #include "HashDisplaceContender.hpp"
 #include "PaCHashContender.hpp"
 #include "ThresholdBasedBumpingConsensusContender.hpp"
+#include "KRecSplitContender.hpp"
 
 int main(int argc, char** argv) {
     double loadFactor = 0.8;
@@ -13,6 +14,7 @@ int main(int argc, char** argv) {
     bool hashdisplace = false;
     bool pachash = false;
     bool thresholdBasedBumpingConsensus = false;
+    bool kRecSplit = false;
 
     tlx::CmdlineParser cmd;
     cmd.add_double('l', "loadFactor", loadFactor, "Load Factor");
@@ -26,6 +28,7 @@ int main(int argc, char** argv) {
     cmd.add_flag("hashDisplace", hashdisplace, "Execute hash displace benchmark");
     cmd.add_flag("pachash", pachash, "Execute PaCHash benchmark");
     cmd.add_flag("thresholdBasedConsensus", thresholdBasedBumpingConsensus, "Execute threshold based bumping consensus benchmark");
+    cmd.add_flag("kRecSplit", kRecSplit, "Execute KRecSplit benchmark");
 
     if (!cmd.process(argc, argv)) {
         return 1;
@@ -41,6 +44,9 @@ int main(int argc, char** argv) {
     }
     if (thresholdBasedBumpingConsensus) {
         thresholdBasedBumpingConsensusContenderRunner(N, k);
+    }
+    if (kRecSplit) {
+        kRecSplitContenderRunner(N, k);
     }
     return 0;
 }

@@ -329,15 +329,14 @@ struct ExtraFields {
 template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
 struct ExtraFields<K, LEAF_SIZE, BumpStrategy::RANK_RECURSE, AT> {
 	size_t unbumped_bins;
-	unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::RANK_RECURSE, AT>>
-	  recurse_bumped;
-	Rank9<AT> buckets_bumped_rank;
+	unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::RANK_RECURSE, AT>> recurse_bumped = nullptr;
+	Rank9<AT> *buckets_bumped_rank = nullptr;
 	Vector<uint64_t, AT> buckets_bumped;
 
 	size_t extraBitCount() {
 		return
 			(recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount())
-			+ buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank)
+			+ buckets_bumped_rank->bitCount() - 8 * sizeof(*buckets_bumped_rank)
 			+ buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
 	}
 
@@ -549,7 +548,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 			ef.get(bucket, cum_keys, cum_keys_next, bit_pos);
 			if constexpr (BS == BumpStrategy::RANK_RECURSE
 			  || BS == BumpStrategy::RANK_SPLIT) {
-				cum_bumped = this->buckets_bumped_rank.rank(bucket);
+				cum_bumped = this->buckets_bumped_rank->rank(bucket);
 			} else {
 				cum_bumped = 0;
 			}
@@ -1008,7 +1007,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
 		  || BS == BumpStrategy::RANK_SPLIT) {
 			this->buckets_bumped_rank =
-			  Rank9<AT>(&this->buckets_bumped, nbuckets+1);
+			  new Rank9<AT>(&this->buckets_bumped, nbuckets+1);
 		} else if constexpr (BS == BumpStrategy::SELECT_RECURSE) {
 			this->buckets_bumped_select =
 			  SimpleSelectHalf<AT>(&this->buckets_bumped, nbuckets+1);
