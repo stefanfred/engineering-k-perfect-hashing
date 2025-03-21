@@ -3,6 +3,7 @@
 #include "ChdContender.hpp"
 #include "HashDisplaceContender.hpp"
 #include "PaCHashContender.hpp"
+#include "ThresholdBasedBumpingContender.hpp"
 #include "ThresholdBasedBumpingConsensusContender.hpp"
 #include "KRecSplitContender.hpp"
 
@@ -13,6 +14,7 @@ int main(int argc, char** argv) {
     bool chd = false;
     bool hashdisplace = false;
     bool pachash = false;
+    bool thresholdbasedbumping = false;
     bool thresholdBasedBumpingConsensus = false;
     bool kRecSplit = false;
 
@@ -27,6 +29,7 @@ int main(int argc, char** argv) {
     cmd.add_flag("chd", chd, "Execute CHD benchmark");
     cmd.add_flag("hashDisplace", hashdisplace, "Execute hash displace benchmark");
     cmd.add_flag("pachash", pachash, "Execute PaCHash benchmark");
+    cmd.add_flag("thresholdBased", thresholdbasedbumping, "Execute threshold based bumping benchmark");
     cmd.add_flag("thresholdBasedConsensus", thresholdBasedBumpingConsensus, "Execute threshold based bumping consensus benchmark");
     cmd.add_flag("kRecSplit", kRecSplit, "Execute KRecSplit benchmark");
 
@@ -42,10 +45,12 @@ int main(int argc, char** argv) {
     if (pachash) {
         paCHashContenderRunner(N, k);
     }
+    if (thresholdbasedbumping) {
+        thresholdBasedBumpingContenderRunner(N, k);
+    }
     if (thresholdBasedBumpingConsensus) {
         thresholdBasedBumpingConsensusContenderRunner(N, k);
     }
-    // TODO: Add threshold based bumping without Consensus
     if (kRecSplit) {
         kRecSplitContenderRunner(N, k);
     }

@@ -79,7 +79,6 @@ public:
 	}
 
 private:
-	// TODO: Why is there this static build function instead of just a constructor?
 	static PaCHash build(int k, double bucket_size,
 	  std::vector<Hash128> keys) {
 		uint64_t n_bins = (keys.size() + k - 1) / k;
