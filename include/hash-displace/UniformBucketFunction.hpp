@@ -3,42 +3,21 @@
 #include <ips2ra.hpp>
 #include <bytehamster/util/Function.h>
 
-#include <hash128.hpp>
-
 namespace kphf::HashDisplace {
-
 class UniformBucketFunction {
-public:
-    class Instance {
     private:
-        uint64_t nbuckets;
-
-        Instance(uint64_t nbuckets): nbuckets(nbuckets) {}
-
+        size_t nbuckets;
     public:
-        uint64_t operator()(uint64_t z) const {
-            return bytehamster::util::fastrange64(z, nbuckets);
+        explicit UniformBucketFunction(size_t nbuckets, double loadFactor) : nbuckets(nbuckets) {
+            (void) loadFactor;
         }
 
-        size_t count_bits() const {
-            return 8 * sizeof(*this);
+        uint64_t operator()(uint64_t hash) const {
+            return bytehamster::util::fastrange64(hash, nbuckets);
         }
 
-        friend class UniformBucketFunction;
-    };
-
-    UniformBucketFunction(uint64_t k) {
-        (void) k;
-    }
-
-    Instance
-      operator()(uint64_t n, uint64_t nbuckets, double load_factor) const {
-        (void) n;
-        (void) load_factor;
-        return Instance(nbuckets);
-    }
-
-    static std::string name() { return "uniform"; }
+        static std::string name() {
+            return "uniform";
+        }
 };
-
 }

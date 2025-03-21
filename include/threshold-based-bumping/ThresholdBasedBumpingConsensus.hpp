@@ -271,7 +271,7 @@ private:
 	std::shared_ptr<SharedData> shared;
 	uint64_t n;
 	std::vector<std::pair<uint64_t, Consensus>> layers;
-    using PHF = kphf::HashDisplace::HashDisplace<1, kphf::HashDisplace::OptimalBucketFunction, kphf::HashDisplace::CompactEncoding>;
+    using PHF = kphf::HashDisplace::HashDisplace<1, kphf::HashDisplace::OptimalBucketFunction<1>, kphf::HashDisplace::CompactEncoding>;
 	PHF phf;
 	mutable sux::bits::EliasFano<> gaps;
 

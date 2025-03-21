@@ -13,3 +13,6 @@
 [submodule "extlib/cmph"]
 	path = extlib/cmph
 	url = https://github.com/bonitao/cmph.git
+[submodule "extlib/gcem"]
+	path = extlib/gcem
+	url = https://github.com/kthohr/gcem.git

@@ -1,6 +1,7 @@
 #include "HashDisplaceContender.hpp"
 
 #include <OptimalBucketFunction.hpp>
+#include <UniformBucketFunction.hpp>
 #include <CompactEncoding.hpp>
 #include <RiceEncoding.hpp>
 #include "DispatchK.h"
@@ -13,8 +14,9 @@ struct HashDisplaceContenderRunner {
         const double b = sqrt(k) * log2(2 * std::numbers::pi * k) * 1.25;
         for (size_t i = 1; i <= 10; i++) {
             size_t bucketSize = (b * i) / 10;
-            HashDisplaceContender<k, OptimalBucketFunction, CompactEncoding>(N, bucketSize).run();
-            HashDisplaceContender<k, OptimalBucketFunction, RiceEncoding>(N, bucketSize).run();
+            HashDisplaceContender<k, OptimalBucketFunction<k>, CompactEncoding>(N, bucketSize).run();
+            HashDisplaceContender<k, OptimalBucketFunction<k>, RiceEncoding>(N, bucketSize).run();
+            HashDisplaceContender<k, UniformBucketFunction, RiceEncoding>(N, bucketSize).run();
         }
     }
 };

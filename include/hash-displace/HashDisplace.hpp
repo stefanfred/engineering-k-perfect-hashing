@@ -11,6 +11,8 @@
 
 #include <hash128.hpp>
 
+#include "../../extlib/simple-ribbon/extlib/ribbon/DySECT/include/bucket.h"
+
 namespace kphf::HashDisplace {
 #ifdef STATS
 struct Config {
@@ -45,31 +47,31 @@ void dump_stats() {
 
 template<size_t k, typename BucketFunction, typename Encoding>
 class HashDisplace {
+    private:
         uint64_t nbuckets;
         uint64_t nbins;
-        typename BucketFunction::Instance bucket_function;
+        BucketFunction bucketFunction;
         Encoding seeds;
-
     public:
         uint64_t operator()(Hash128 item) const {
-            uint64_t bucket = bucket_function(item.hi);
+            uint64_t bucket = bucketFunction(item.hi);
             uint64_t seed = seeds[bucket];
             return bytehamster::util::fastrange64(bytehamster::util::remix(item.lo + seed), nbins);
         }
 
         [[nodiscard]] size_t count_bits() const {
             return 8 * sizeof(*this)
-                   + (bucket_function.count_bits() - 8 * sizeof(bucket_function))
                    + (seeds.count_bits() - 8 * sizeof(seeds));
         }
 
-        HashDisplace() : nbuckets(0), nbins(0), bucket_function(BucketFunction(8)(0, 0, 1.0)) {
+        HashDisplace()
+            : nbuckets(0), nbins(0), bucketFunction(0, 1.0) {
         }
 
         HashDisplace(const std::vector<Hash128> &items, uint64_t bucket_size, double load_factor = 1.0)
             : nbuckets((items.size() + bucket_size - 1) / bucket_size),
               nbins(ceil(items.size() / load_factor / k)),
-              bucket_function(BucketFunction(k)(items.size(), nbuckets, load_factor)) {
+              bucketFunction(nbuckets, load_factor) {
             assert(bucket_size > 0);
             assert(0.0 <= load_factor && load_factor <= 1.0);
 
@@ -79,7 +81,7 @@ class HashDisplace {
 
             auto r = std::views::transform(items,
                    [&](Hash128 item) -> std::pair<uint64_t, uint64_t> {
-                       return {bucket_function(item.hi), item.lo};
+                       return {bucketFunction(item.hi), item.lo};
                    });
             std::vector<std::pair<uint64_t, uint64_t> >
                     sorted_items(r.begin(), r.end());

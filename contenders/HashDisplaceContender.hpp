@@ -16,8 +16,8 @@ class HashDisplaceContender : public Contender {
         std::string name() override {
             return std::string("HashDisplace")
                     + " bucket_size=" + std::to_string(bucketSize)
-                    + " bucketFunction=" + typeid(BucketFunction).name() // TODO: Support calling BucketFunction::name()
-                    + " encoding=" + typeid(Encoding).name();
+                    + " bucketFunction=" + BucketFunction::name()
+                    + " encoding=" + typeid(Encoding).name(); // TODO: Support calling Encoding::name()
         }
 
         void construct(const std::vector<std::string> &keys) override {

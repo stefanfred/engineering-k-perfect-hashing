@@ -747,7 +747,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 				recSplit(bucket, temp, start + split, end, builder, unary, bumped, level + 1);
 			} else if (m > lower_aggr) { // 2nd aggregation level
 				const size_t fanout = uint16_t(m + lower_aggr - 1) / lower_aggr;
-				size_t count[fanout]; // Note that we never read count[fanout-1]
+				size_t count[MAX_FANOUT]; // Note that we never read count[fanout-1]
 				for (;;) {
 					memset(count, 0, sizeof count - sizeof *count);
 					for (size_t i = start; i < end; i++) {
@@ -783,7 +783,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 				recSplit(bucket, temp, start + i, end, builder, unary, bumped, level + 1);
 			} else if (m > leaf_keys) { // First aggregation level, m <= lower_aggr
 				const size_t fanout = uint16_t(m + leaf_keys - 1) / leaf_keys;
-				size_t count[fanout]; // Note that we never read count[fanout-1]
+				size_t count[MAX_FANOUT]; // Note that we never read count[fanout-1]
 				for (;;) {
 					memset(count, 0, sizeof count - sizeof *count);
 					for (size_t i = start; i < end; i++) {
@@ -818,7 +818,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 				recSplit(bucket, temp, start + i, end, builder, unary, bumped, level + 1);
 			} else { // Leaf
 				const size_t fanout = uint16_t(m + _k - 1) / _k;
-				size_t count[fanout]; // Note that we never read count[fanout-1]
+				size_t count[MAX_FANOUT]; // Note that we never read count[fanout-1]
 				for (;;) {
 					memset(count, 0, sizeof count - sizeof *count);
 					for (size_t i = start; i < end; i++) {

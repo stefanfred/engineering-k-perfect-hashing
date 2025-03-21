@@ -21,6 +21,7 @@ endif()
 
 add_library(KphfCommon INTERFACE)
 target_include_directories(KphfCommon INTERFACE include/common)
+target_include_directories(KphfCommon INTERFACE extlib/gcem/include)
 target_compile_features(KphfCommon INTERFACE cxx_std_23)
 
 if(NOT TARGET tlx)
