@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
     if (thresholdBasedBumpingConsensus) {
         thresholdBasedBumpingConsensusContenderRunner(N, k);
     }
+    // TODO: Add threshold based bumping without Consensus
     if (kRecSplit) {
         kRecSplitContenderRunner(N, k);
     }

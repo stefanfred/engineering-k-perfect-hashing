@@ -4,6 +4,7 @@ void dispatchThresholdsAndOverloads(size_t N, uint64_t k, std::initializer_list<
                                     std::initializer_list<double> overloads) {
     for (uint64_t threshold_size: threshold_sizes) {
         for (double overload: overloads) {
+            // TODO: These should probably be templates for better compile-time evaluation
             {ThresholdBasedBumpingConsensusContender(N, k, overload, threshold_size).run();}
         }
     }
