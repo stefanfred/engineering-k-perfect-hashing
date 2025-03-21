@@ -22,3 +22,12 @@ Each target is a different k-perfect hash function with its own set of dependenc
 - `Kphf::RecSplit`
 - `Kphf::HashDisplace`
 - `Kphf::ThresholdBasedBumping`
+
+### Benchmark framework
+
+This repository also contains a benchmark framework for k-perfect hash functions.
+The framework can be found in the `contenders` and `benchmarklib` folders.
+
+### License
+
+This code is licensed under the [GPLv3](/LICENSE).
