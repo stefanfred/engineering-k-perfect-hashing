@@ -14,6 +14,9 @@
 #include <hash128.hpp>
 #include <sux/bits/EliasFano.hpp>
 #include <bytehamster/util/Function.h>
+#include <HashDisplace.hpp>
+#include <OptimalBucketFunction.hpp>
+#include <CompactEncoding.hpp>
 
 namespace kphf::ThresholdBasedBumping {
 
@@ -229,6 +232,7 @@ public:
 	}
 };
 
+// TODO: Code duplication with Consensus variant, extract
 namespace {
 	struct Key {
 		uint64_t bucket, fingerprint;
@@ -237,14 +241,18 @@ namespace {
 
 	template<typename R>
 	void sort_keys(R &&r) {
-		ips2ra::sort(r.begin(), r.end(),
-		  [](const Key &key) -> unsigned __int128 {
-			return (unsigned __int128)key.bucket << 64 | key.fingerprint;
+		std::sort(r.begin(), r.end(), [](const Key &a, const Key &b) {
+			return a.bucket < b.bucket || (a.bucket == b.bucket && a.fingerprint < b.fingerprint);
 		});
+		// TODO: Use ips2ra again, which does not natively support uint128
+		//ips2ra::sort(r.begin(), r.end(),
+		//  [](const Key &key) -> unsigned __int128 {
+		//	return (unsigned __int128)key.bucket << 64 | key.fingerprint;
+		//});
 	}
 }
 
-template<uint64_t K, double OVERLOAD, int THRESHOLD_SIZE_HALFBITS, typename PHF, typename Filter = DummyFilter>
+template<uint64_t K, double OVERLOAD, int THRESHOLD_SIZE_HALFBITS, typename Filter = DummyFilter>
 class ThresholdBasedBumping {
 	static_assert(OVERLOAD > 1.0);
 	static_assert(THRESHOLD_SIZE_HALFBITS >= 2);
@@ -265,6 +273,7 @@ private:
 	std::vector<uint64_t> nbuckets;
 	std::vector<uint8_t> thresholds;
 	[[no_unique_address]] Filter filter;
+	using PHF = HashDisplace::HashDisplace<1, HashDisplace::OptimalBucketFunction<1>, HashDisplace::CompactEncoding>;
 	PHF phf;
 	mutable sux::bits::EliasFano<> gaps;
 
@@ -275,11 +284,14 @@ private:
 	  phf(std::move(phf)), gaps(std::move(gaps)) {}
 
 public:
+	ThresholdBasedBumping()
+		: n(0), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
+	}
+
 	template<typename F>
-	ThresholdBasedBumping(const std::vector<Hash128> &keys, F &&build_phf,
-	  Filter::Builder filter = {}):
-	  ThresholdBasedBumping(build(keys, std::forward<F>(build_phf),
-	    std::move(filter))) {}
+	ThresholdBasedBumping(const std::vector<Hash128> &keys, F &&build_phf, Filter::Builder filter = {})
+		: ThresholdBasedBumping(build(keys, std::forward<F>(build_phf), std::move(filter))) {
+	}
 
 	uint64_t operator()(Hash128 key) const {
 		uint64_t offset = 0;
@@ -324,16 +336,11 @@ public:
 		;
 	}
 
-private:
-	template<typename F>
-	static ThresholdBasedBumping
-	  build(std::vector<Hash128> keys, F &&build_phf, Filter::Builder filter) {
-		uint64_t n = keys.size();
+	ThresholdBasedBumping(std::vector<Hash128> keys)
+			: n(keys.size()), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
+		typename Filter::Builder filter;
 		uint64_t total_buckets = (n + _k - 1) / _k;
-		std::vector<uint64_t> nbuckets;
-		std::vector<uint8_t> thresholds(
-		  ((total_buckets+1)/2 * threshold_size_halfbits + 7) / 8 + 7
-		);
+		thresholds.resize(((total_buckets+1)/2 * threshold_size_halfbits + 7) / 8 + 7);
 		thresholds.shrink_to_fit();
 
 #ifdef STATS
@@ -451,7 +458,7 @@ private:
 		bumped_keys += keys.size();
 #endif
 
-		PHF phf = std::forward<F>(build_phf)(std::as_const(keys));
+		phf = PHF(keys, 5);
 		std::vector<uint64_t> actual_spots;
 		for (Hash128 k: keys) {
 			uint64_t h = phf(k);
@@ -465,11 +472,8 @@ private:
 			x = v;
 		}
 
-		return ThresholdBasedBumping(n, std::move(nbuckets),
-			std::move(thresholds), filter.build(),
-			std::move(phf),
-			sux::bits::EliasFano<>(actual_spots, total_buckets)
-		);
+		gaps = sux::bits::EliasFano<>(actual_spots, total_buckets);
+		this->filter = std::move(filter.build());
 	}
 };
 
