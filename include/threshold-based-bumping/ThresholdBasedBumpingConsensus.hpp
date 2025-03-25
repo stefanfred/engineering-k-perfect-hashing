@@ -14,9 +14,7 @@
 #include <sux/bits/EliasFano.hpp>
 #include <ips2ra.hpp>
 #include <bytehamster/util/Function.h>
-#include <HashDisplace.hpp>
-#include <OptimalBucketFunction.hpp>
-#include <CompactEncoding.hpp>
+#include <Fips.h>
 
 #include <hash128.hpp>
 #include "consensus.hpp"
@@ -271,8 +269,7 @@ private:
 	std::shared_ptr<SharedData> shared;
 	uint64_t n;
 	std::vector<std::pair<uint64_t, Consensus>> layers;
-    using PHF = kphf::HashDisplace::HashDisplace<1, kphf::HashDisplace::OptimalBucketFunction<1>, kphf::HashDisplace::CompactEncoding>;
-	PHF phf;
+	fips::FiPS<> phf;
 	mutable sux::bits::EliasFano<> gaps;
 
 public:
@@ -293,7 +290,7 @@ public:
 			offset += cur_buckets;
 		}
 
-		return gaps.select(phf(key));
+		return gaps.select(phf(key.hi ^ key.lo));
 	}
 
 	size_t count_bits() const {
@@ -302,7 +299,7 @@ public:
 		return sizeof(*this) * 8
 			+ layers.capacity() * sizeof(layers[0])
 		    + s
-			+ phf.count_bits() - sizeof(phf) * 8
+			+ phf.getBits() - sizeof(phf) * 8
 			+ gaps.bitCount() - sizeof(gaps) * 8
 		;
 	}
@@ -438,11 +435,11 @@ private:
 
 	public:
 	ThresholdBasedBumpingConsensus()
-		: n(0), shared(new SharedData(8, 2.0, 3)), gaps({}, 0) {
+		: n(0), shared(std::make_unique<SharedData>(8, 2.0, 3)), gaps({}, 0) {
 	}
 
     ThresholdBasedBumpingConsensus(size_t k, std::vector<Hash128> &keys, double overload, size_t thresholdSize)
-            : n(keys.size()), shared(new SharedData(k, overload, thresholdSize)), gaps({}, 0) {
+            : n(keys.size()), shared(std::make_unique<SharedData>(k, overload, thresholdSize)), gaps({}, 0) {
 		double overload_bucket_size = k * shared->overload;
 		uint64_t total_buckets = (n + k - 1) / k;
 
@@ -454,10 +451,12 @@ private:
 		std::vector<uint64_t> spots;
 		for (uint64_t i = 0; offset != total_buckets; i++) {
 			uint64_t remaining = total_buckets - offset;
-			uint64_t cur_buckets =
-			  std::ceil(keys.size() / overload_bucket_size);
-			if (cur_buckets >= remaining) cur_buckets = remaining;
-			else if ((double)(keys.size() - k * cur_buckets) / (remaining - cur_buckets) > overload_bucket_size) cur_buckets = remaining;
+			uint64_t cur_buckets = std::ceil(keys.size() / overload_bucket_size);
+			if (cur_buckets >= remaining) {
+				cur_buckets = remaining;
+			} else if ((double)(keys.size() - k * cur_buckets) / (remaining - cur_buckets) > overload_bucket_size) {
+				cur_buckets = remaining;
+			}
 
 			Builder builder(shared.get(), keys, i, cur_buckets, offset, &spots);
 			Consensus consensus(builder);
@@ -472,11 +471,17 @@ private:
 		bumped_keys += keys.size();
 #endif
 
-		phf = PHF(keys, 5);
+		std::vector<uint64_t> fallbackKeys;
+		for (Hash128 key : keys) {
+			fallbackKeys.push_back(key.hi ^ key.lo);
+		}
+		phf = fips::FiPS<>(fallbackKeys);
 		std::vector<uint64_t> actual_spots;
-		for (Hash128 k: keys) {
-			uint64_t h = phf(k);
-			if (h >= actual_spots.size()) actual_spots.resize(h+1);
+		for (uint64_t key : fallbackKeys) {
+			uint64_t h = phf(key);
+			if (h >= actual_spots.size()) {
+				actual_spots.resize(h + 1);
+			}
 			actual_spots[h] = 1;
 		}
 		auto it = spots.begin();

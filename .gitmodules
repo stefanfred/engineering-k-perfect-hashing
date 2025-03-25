@@ -16,3 +16,6 @@
 [submodule "extlib/gcem"]
 	path = extlib/gcem
 	url = https://github.com/kthohr/gcem.git
+[submodule "extlib/fips"]
+	path = extlib/fips
+	url = https://github.com/ByteHamster/FiPS.git

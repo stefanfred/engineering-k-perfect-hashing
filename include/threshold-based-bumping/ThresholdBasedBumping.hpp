@@ -14,9 +14,7 @@
 #include <hash128.hpp>
 #include <sux/bits/EliasFano.hpp>
 #include <bytehamster/util/Function.h>
-#include <HashDisplace.hpp>
-#include <OptimalBucketFunction.hpp>
-#include <CompactEncoding.hpp>
+#include <Fips.h>
 
 namespace kphf::ThresholdBasedBumping {
 
@@ -273,12 +271,11 @@ private:
 	std::vector<uint64_t> nbuckets;
 	std::vector<uint8_t> thresholds;
 	[[no_unique_address]] Filter filter;
-	using PHF = HashDisplace::HashDisplace<1, HashDisplace::OptimalBucketFunction<1>, HashDisplace::CompactEncoding>;
-	PHF phf;
+	fips::FiPS<> phf;
 	mutable sux::bits::EliasFano<> gaps;
 
 	ThresholdBasedBumping(uint64_t n, std::vector<uint64_t> &&nbuckets,
-	  std::vector<uint8_t> &&thresholds, Filter &&filter, PHF &&phf,
+	  std::vector<uint8_t> &&thresholds, Filter &&filter, fips::FiPS<> &&phf,
 	  sux::bits::EliasFano<> &&gaps): n(n), nbuckets(std::move(nbuckets)),
 	  thresholds(std::move(thresholds)), filter(std::move(filter)),
 	  phf(std::move(phf)), gaps(std::move(gaps)) {}
@@ -323,7 +320,7 @@ public:
 			offset += cur_buckets;
 		}
 
-		return gaps.select(phf(key));
+		return gaps.select(phf(key.hi ^ key.lo));
 	}
 
 	size_t count_bits() const {
@@ -331,7 +328,7 @@ public:
 			+ nbuckets.capacity() * 64
 			+ thresholds.capacity() * 8
 			+ filter.count_bits() - sizeof(filter) * 8
-			+ phf.count_bits() - sizeof(phf) * 8
+			+ phf.getBits() - sizeof(phf) * 8
 			+ gaps.bitCount() - sizeof(gaps) * 8
 		;
 	}
@@ -458,10 +455,14 @@ public:
 		bumped_keys += keys.size();
 #endif
 
-		phf = PHF(keys, 5);
+		std::vector<uint64_t> fallbackKeys;
+		for (Hash128 key : keys) {
+			fallbackKeys.push_back(key.hi ^ key.lo);
+		}
+		phf = fips::FiPS<>(fallbackKeys);
 		std::vector<uint64_t> actual_spots;
-		for (Hash128 k: keys) {
-			uint64_t h = phf(k);
+		for (uint64_t key : fallbackKeys) {
+			uint64_t h = phf(key);
 			if (h >= actual_spots.size()) actual_spots.resize(h+1);
 			actual_spots[h] = 1;
 		}
