@@ -42,10 +42,12 @@
 #include <sux/bits/SimpleSelectHalf.hpp>
 #include <sux/function/DoubleEF.hpp>
 #include <sux/function/RiceBitVector.hpp>
+#include <sux/function/RecSplit.hpp>
 
 namespace sux::function::krecsplit {
 
 using namespace std;
+using namespace sux::function;
 using namespace std::chrono;
 using sux::function::RiceBitVector;
 using sux::function::DoubleEF;
@@ -81,57 +83,7 @@ static uint64_t sum_depths;
 static uint64_t time_split[MAX_LEVEL_TIME];
 #endif
 
-static const uint64_t start_seed[] = {0x106393c187cae21a, 0x6453cec3f7376937, 0x643e521ddbd2be98, 0x3740c6412f6572cb, 0x717d47562f1ce470, 0x4cd6eb4c63befb7c, 0x9bfd8c5e18c8da73,
-									  0x082f20e10092a9a3, 0x2ada2ce68d21defc, 0xe33cb4f3e7c6466b, 0x3980be458c509c59, 0xc466fd9584828e8c, 0x45f0aabe1a61ede6, 0xf6e7b8b33ad9b98d,
-									  0x4ef95e25f4b4983d, 0x81175195173b92d3, 0x4e50927d8dd15978, 0x1ea2099d1fafae7f, 0x425c8a06fbaaa815, 0xcd4216006c74052a};
-
-/** David Stafford's (http://zimbry.blogspot.com/2011/09/better-bit-mixing-improving-on.html)
- * 13th variant of the 64-bit finalizer function in Austin Appleby's
- * MurmurHash3 (https://github.com/aappleby/smhasher).
- *
- * @param z a 64-bit integer.
- * @return a 64-bit integer obtained by mixing the bits of `z`.
- */
-// TODO: Remove functions that are duplicates of things that can be found in RecSplit/Sux,
-//  no need to define them again
-uint64_t inline remix(uint64_t z) {
-	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-	return z ^ (z >> 31);
-}
-
-/** 128-bit hashes.
- *
- * In the construction of RecSplit, keys are replaced with instances
- * of this class using SpookyHash, first thing.
- * Moreover, it is possible to build and query RecSplit instances using 128-bit
- * random hashes only (mainly for benchmarking purposes).
- */
-
-typedef struct __hash128_t {
-	uint64_t first, second;
-	bool operator<(const __hash128_t &o) const { return first < o.first || second < o.second; }
-	__hash128_t(const uint64_t first, const uint64_t second) {
-		this->first = first;
-		this->second = second;
-	}
-} hash128_t;
-
-/** Convenience function hashing a key a returning a __hash128_t
- *
- * @param data a pointer to the key.
- * @param length the length in bytes of the key.
- * @param seed an additional seed.
- */
-
-hash128_t inline spooky(const void *data, const size_t length, const uint64_t seed) {
-	uint64_t h0 = seed, h1 = seed;
-	SpookyHash::Hash128(data, length, &h0, &h1);
-	return {h1, h0};
-}
-
 // Quick replacements for min/max on not-so-large integers.
-
 static constexpr inline uint64_t min(int64_t x, int64_t y) { return y + ((x - y) & ((x - y) >> 63)); }
 static constexpr inline uint64_t max(int64_t x, int64_t y) { return x - ((x - y) & ((x - y) >> 63)); }
 
@@ -140,7 +92,6 @@ static constexpr inline uint64_t max(int64_t x, int64_t y) { return x - ((x - y)
  *  Note that this class is used _for statistics only_. The splitting strategy is embedded
  *  into the generation code, which uses only the public fields SplittingStrategy::lower_aggr and SplittingStrategy::upper_aggr.
  */
-
 template <size_t K, size_t LEAF_SIZE> class SplittingStrategy {
 	static constexpr size_t _k = K;
 	static constexpr size_t _leaf_size = LEAF_SIZE;
@@ -239,7 +190,6 @@ template <size_t K, size_t LEAF_SIZE> class SplittingStrategy {
 // of a splitting (upper 5 bits), the number of nodes in the associated subtree
 // (following 11 bits) and the sum of the Golomb-Rice codelengths in the same
 // subtree (lower 16 bits).
-
 template <size_t K, size_t LEAF_SIZE> static constexpr void _fill_golomb_rice(const int m, array<uint32_t, MAX_BUCKET_SIZE<K, LEAF_SIZE>> *memo) {
 	array<int, MAX_FANOUT> k{0};
 
@@ -280,7 +230,6 @@ template <size_t K, size_t LEAF_SIZE> static constexpr array<uint32_t, MAX_BUCKE
 }
 
 // Computes the Golomb modulu of a splitting (for statistics purposes only)
-
 template <size_t K, size_t LEAF_SIZE> static constexpr uint64_t split_golomb_b(const int m) {
 	array<int, MAX_FANOUT> k{0};
 
@@ -319,11 +268,10 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT = util
 template<size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT>
 struct ExtraFields {
 	size_t extraBitCount() { return 0; }
-#ifdef STATS
+
 	void stats(auto &show) {
 		(void) show;
 	}
-#endif
 };
 
 template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
@@ -340,16 +288,11 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::RANK_RECURSE, AT> {
 			+ buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
 	}
 
-#ifdef STATS
 	void stats(auto &show) {
-		show("Recursive structure",
-		  recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
-		show("Bumped buckets",
-		  buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-		show("Rank on bumped buckets",
-		  buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank));
+		show("Recursive structure", recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
+		show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
+		show("Rank on bumped buckets", buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank));
 	}
-#endif
 };
 
 template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
@@ -364,14 +307,10 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::RANK_SPLIT, AT> {
 			+ buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
 	}
 
-#ifdef STATS
 	void stats(auto &show) {
-		show("Bumped buckets",
-		  buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-		show("Rank on bumped buckets",
-		  buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank));
+		show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
+		show("Rank on bumped buckets", buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank));
 	}
-#endif
 };
 
 template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
@@ -382,19 +321,15 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::INTERSPERSE_SPLIT, AT> {
 		return buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
 	}
 
-#ifdef STATS
 	void stats(auto &show) {
-		show("Bumped buckets",
-		  buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
+		show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
 	}
-#endif
 };
 
 template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
 struct ExtraFields<K, LEAF_SIZE, BumpStrategy::BINS_MOD_RECURSE, AT> {
 	size_t unbumped_bins;
-	unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::BINS_MOD_RECURSE, AT>>
-	  recurse_bumped;
+	unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::BINS_MOD_RECURSE, AT>> recurse_bumped;
 	Vector<uint8_t, AT> bucket_mods;
 
 	size_t extraBitCount() {
@@ -403,20 +338,15 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::BINS_MOD_RECURSE, AT> {
 			+ bucket_mods.bitCount() - 8 * sizeof(bucket_mods);
 	}
 
-#ifdef STATS
 	void stats(auto &show) {
-		show("Recursive structure",
-		  recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
-		show("Bucket size modulo K",
-		  bucket_mods.bitCount() - 8 * sizeof(bucket_mods));
+		show("Recursive structure", recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
+		show("Bucket size modulo K", bucket_mods.bitCount() - 8 * sizeof(bucket_mods));
 	}
-#endif
 };
 
 template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
 struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
-	unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT>>
-	  recurse_bumped;
+	unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT>> recurse_bumped;
 	SimpleSelectHalf<AT> buckets_bumped_select;
 	Vector<uint64_t, AT> buckets_bumped;
 
@@ -428,20 +358,14 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
 			+ buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
 	}
 
-#ifdef STATS
 	void stats(auto &show) {
-		show("Recursive structure",
-		  recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
-		show("Bumped buckets",
-		  buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-		show("Select on bumped buckets",
-		  buckets_bumped_select.bitCount() - 8 * sizeof(buckets_bumped_select));
+		show("Recursive structure", recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
+		show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
+		show("Select on bumped buckets", buckets_bumped_select.bitCount() - 8 * sizeof(buckets_bumped_select));
 	}
-#endif
 };
 
 /**
- *
  * A class for storing minimal perfect hash functions. The template
  * parameter decides how large a leaf will be. Larger leaves imply
  * slower construction, but less space and faster evaluation.
@@ -450,7 +374,7 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
  * for fast, small maps, or up to 16 for very compact functions.
  * @tparam AT a type of memory allocation out of sux::util::AllocType.
  */
-
+// TODO: What is the difference between K and LEAF_SIZE?
 template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
 	using SplitStrat = SplittingStrategy<K, LEAF_SIZE>;
 
@@ -610,11 +534,14 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 		if (m == _k) return cum_bins;
 
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
-		  || BS == BumpStrategy::BINS_MOD_RECURSE
-		  || BS == BumpStrategy::SELECT_RECURSE) {
+				|| BS == BumpStrategy::BINS_MOD_RECURSE
+				|| BS == BumpStrategy::SELECT_RECURSE) {
 			size_t rec;
-			if (this->recurse_bumped == nullptr) rec = 0;
-			else rec = (*this->recurse_bumped)(hash);
+			if (this->recurse_bumped == nullptr) {
+				rec = 0;
+			} else {
+				rec = (*this->recurse_bumped)(hash);
+			}
 			if constexpr (BS == BumpStrategy::SELECT_RECURSE) {
 				bucket = this->buckets_bumped_select.select(rec);
 				if (bucket == nbuckets) return keys_count / _k;
@@ -625,13 +552,14 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 				return this->unbumped_bins + rec;
 			}
 		} else if constexpr (BS == BumpStrategy::RANK_SPLIT
-		  || BS == BumpStrategy::INTERSPERSE_SPLIT
-		  || BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
+				|| BS == BumpStrategy::INTERSPERSE_SPLIT
+				|| BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
 			const size_t split = _k - cum_keys % _k;
 
 			bool split_right;
-			if (split >= m) split_right = false;
-			else {
+			if (split >= m) {
+				split_right = false;
+			} else {
 				const double p = sqrt(m / (2 * M_PI * split * (m - split)));
 				const uint64_t seed = end(start_seed)[-1] + reader.readGolomb(p);
 				const size_t hmod = remap16(remix(hash.second + seed), m);
@@ -663,7 +591,8 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 				}
 				return cum_keys_next / _k - 1;
 			}
-
+		} else {
+			throw runtime_error("Unknown bump strategy");
 		}
 	}
 
@@ -907,9 +836,9 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 		auto bucket_size_acc = vector<int64_t>(nbuckets + 1);
 		auto bucket_pos_acc = vector<int64_t>(nbuckets + 1);
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
-		  || BS == BumpStrategy::RANK_SPLIT
-		  || BS == BumpStrategy::INTERSPERSE_SPLIT
-		  || BS == BumpStrategy::SELECT_RECURSE) {
+				|| BS == BumpStrategy::RANK_SPLIT
+				|| BS == BumpStrategy::INTERSPERSE_SPLIT
+				|| BS == BumpStrategy::SELECT_RECURSE) {
 			this->buckets_bumped.size((nbuckets + 1 + 63) / 64);
 		}
 
@@ -919,8 +848,8 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 		bucket_size_acc[0] = bucket_pos_acc[0] = 0;
 		vector<hash128_t> bumped_keys;
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
-		  || BS == BumpStrategy::RANK_SPLIT
-		  || BS == BumpStrategy::BINS_MOD_RECURSE) {
+				|| BS == BumpStrategy::RANK_SPLIT
+				|| BS == BumpStrategy::BINS_MOD_RECURSE) {
 			this->unbumped_bins = 0;
 		}
 		if constexpr (BS == BumpStrategy::BINS_MOD_RECURSE) {
@@ -944,24 +873,24 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 				bucket_size_acc[i + 1] = bucket_size_acc[i] + s;
 			}
 			if constexpr (BS == BumpStrategy::RANK_RECURSE
-			  || BS == BumpStrategy::RANK_SPLIT
-			  || BS == BumpStrategy::BINS_MOD_RECURSE) {
+					|| BS == BumpStrategy::RANK_SPLIT
+					|| BS == BumpStrategy::BINS_MOD_RECURSE) {
 				this->unbumped_bins += s / _k;
 			}
 			vector<uint32_t> unary;
 			recSplit(bucket, builder, unary, bumped_keys);
 			builder.appendUnaryAll(unary);
 			if constexpr (BS == BumpStrategy::RANK_RECURSE
-			  || BS == BumpStrategy::RANK_SPLIT
-			  || BS == BumpStrategy::INTERSPERSE_SPLIT
-			  || BS == BumpStrategy::SELECT_RECURSE) {
+					|| BS == BumpStrategy::RANK_SPLIT
+					|| BS == BumpStrategy::INTERSPERSE_SPLIT
+					|| BS == BumpStrategy::SELECT_RECURSE) {
 				if (bucket_size_acc[i] % _k > bucket_size_acc[i+1] % _k) {
 					this->buckets_bumped[i / 64] |= uint64_t(1) << (i&63);
 				}
 			}
 			if constexpr (BS == BumpStrategy::RANK_SPLIT
-			  || BS == BumpStrategy::INTERSPERSE_SPLIT
-			  || BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
+					|| BS == BumpStrategy::INTERSPERSE_SPLIT
+					|| BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
 				const size_t m = bumped_keys.size();
 				const size_t split = _k - bucket_size_acc[i] % _k;
 				if (split < m) {
@@ -995,30 +924,27 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
 #endif
 		}
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
-		  || BS == BumpStrategy::RANK_SPLIT
-		  || BS == BumpStrategy::INTERSPERSE_SPLIT
-		  || BS == BumpStrategy::SELECT_RECURSE) {
+				|| BS == BumpStrategy::RANK_SPLIT
+				|| BS == BumpStrategy::INTERSPERSE_SPLIT
+				|| BS == BumpStrategy::SELECT_RECURSE) {
 			this->buckets_bumped[nbuckets / 64] |=
 			  uint64_t(1) << (nbuckets & 63);
 		}
 		builder.appendFixed(1, 1); // Sentinel (avoids checking for parts of size 1)
 		descriptors = builder.build();
-		ef = DoubleEF<AT>(vector<uint64_t>(bucket_size_acc.begin(), bucket_size_acc.end()), vector<uint64_t>(bucket_pos_acc.begin(), bucket_pos_acc.end()));
+		ef = DoubleEF<AT>(vector<uint64_t>(bucket_size_acc.begin(), bucket_size_acc.end()),
+			vector<uint64_t>(bucket_pos_acc.begin(), bucket_pos_acc.end()));
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
-		  || BS == BumpStrategy::RANK_SPLIT) {
-			this->buckets_bumped_rank =
-			  new Rank9<AT>(&this->buckets_bumped, nbuckets+1);
+				|| BS == BumpStrategy::RANK_SPLIT) {
+			this->buckets_bumped_rank = new Rank9<AT>(&this->buckets_bumped, nbuckets+1);
 		} else if constexpr (BS == BumpStrategy::SELECT_RECURSE) {
-			this->buckets_bumped_select =
-			  SimpleSelectHalf<AT>(&this->buckets_bumped, nbuckets+1);
+			this->buckets_bumped_select = SimpleSelectHalf<AT>(&this->buckets_bumped, nbuckets+1);
 		}
 		if constexpr (BS == BumpStrategy::RANK_RECURSE
-		  || BS == BumpStrategy::BINS_MOD_RECURSE
-		  || BS == BumpStrategy::SELECT_RECURSE) {
+				|| BS == BumpStrategy::BINS_MOD_RECURSE
+				|| BS == BumpStrategy::SELECT_RECURSE) {
 			if (bumped_keys.size() > _k) {
-				this->recurse_bumped =
-				  make_unique<RecSplit<K, LEAF_SIZE, BS, AT>>(bumped_keys,
-				                                              bucket_size);
+				this->recurse_bumped = make_unique<RecSplit<K, LEAF_SIZE, BS, AT>>(bumped_keys, bucket_size);
 			}
 		}
 
