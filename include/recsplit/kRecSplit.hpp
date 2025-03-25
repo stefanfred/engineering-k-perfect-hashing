@@ -370,11 +370,9 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
  * parameter decides how large a leaf will be. Larger leaves imply
  * slower construction, but less space and faster evaluation.
  *
- * @tparam LEAF_SIZE the size of a leaf; typicals value range from 6 to 8
- * for fast, small maps, or up to 16 for very compact functions.
+ * @tparam LEAF_SIZE The number of output buckets of size k in each leaf.
  * @tparam AT a type of memory allocation out of sux::util::AllocType.
  */
-// TODO: What is the difference between K and LEAF_SIZE?
 template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
     using SplitStrat = SplittingStrategy<K, LEAF_SIZE>;
 
