@@ -6,13 +6,14 @@
 #include <cstdint>
 #include <cstring>
 
+namespace kphf::ThresholdBasedBumpingConsensus {
 uint64_t backtracks = 0;
 
 class Consensus {
-private:
+	private:
 	std::vector<uint8_t> data;
 
-public:
+	public:
 	template<typename T>
 	Consensus(T &&builder) {
 		std::uint64_t size = 0;
@@ -63,7 +64,7 @@ public:
 		}
 		data.resize((64 + size + 7) / 8 + 7);
 		data.shrink_to_fit();
-		
+
 	}
 
 	std::pair<std::uint64_t, std::uint64_t>
@@ -83,8 +84,9 @@ public:
 };
 
 #if 0
-	auto advance(std::uint64_t consensus) -> std::optional<std::uint64_t>;
-	auto backtrack() -> std::uint64_t;
-	auto find_first(std::uint64_t consensus) -> std::optional<std::uint64_t>;
-	auto find_next(std::uint64_t consensus, std::uint64_t prev) -> std::optional<std::uint64_t>;
+auto advance(std::uint64_t consensus) -> std::optional<std::uint64_t>;
+auto backtrack() -> std::uint64_t;
+auto find_first(std::uint64_t consensus) -> std::optional<std::uint64_t>;
+auto find_next(std::uint64_t consensus, std::uint64_t prev) -> std::optional<std::uint64_t>;
 #endif
+}
