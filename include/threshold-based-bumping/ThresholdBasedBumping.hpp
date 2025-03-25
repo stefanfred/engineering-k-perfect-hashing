@@ -16,6 +16,8 @@
 #include <bytehamster/util/Function.h>
 #include <Fips.h>
 
+#include "common.hpp"
+
 namespace kphf::ThresholdBasedBumping {
 
 uint64_t select_bucket(uint64_t z, uint64_t nbuckets) {
@@ -23,8 +25,7 @@ uint64_t select_bucket(uint64_t z, uint64_t nbuckets) {
 }
 
 template<uint64_t n_thresholds>
-constexpr std::array<uint64_t, n_thresholds>
-  compute_thresholds(uint64_t _k, double bucket_size) {
+constexpr std::array<uint64_t, n_thresholds> compute_thresholds(uint64_t _k, double bucket_size) {
 	double lo = 0, hi = _k;
 
 	for (int i = 0; i < 100; i++) {
@@ -134,60 +135,6 @@ public:
 	}
 };
 
-class HashmapFilter {
-private:
-	struct Hash {
-		size_t operator()(std::pair<int, Hash128> p) const {
-			return (size_t) p.first + (size_t) p.second.lo;
-		}
-	};
-
-	struct Eq {
-		bool operator()(std::pair<int, Hash128> a, std::pair<int, Hash128> b) const {
-			return a.first == b.first &&
-			  a.second.hi == b.second.hi && a.second.lo == b.second.lo;
-		}
-	};
-
-	using Map = std::unordered_map<std::pair<int, Hash128>, bool, Hash, Eq>;
-
-	Map map;
-	HashmapFilter(Map &&map): map(std::move(map)) {}
-
-public:
-	class Builder {
-	private:
-		Map map;
-
-	public:
-		Builder() {}
-
-		void add(int level, std::vector<Hash128> &elems, size_t bump) {
-			for (Hash128 h: elems | std::views::take(bump)) {
-				map[{level,h}] = true;
-			}
-			for (Hash128 h: elems | std::views::drop(bump)) {
-				map[{level,h}] = false;
-			}
-			elems.resize(bump);
-		}
-
-		HashmapFilter build() {
-			return HashmapFilter(std::move(map));
-		}
-
-		static std::string name() { return "hashmap"; }
-	};
-
-	bool bump(int level, Hash128 hash) const {
-		return map.find({level,hash})->second;
-	}
-
-	size_t count_bits() const {
-		return map.size(); /* pretend we just need one bit per element */
-	}
-};
-
 class RibbonFilter {
 private:
 	using Ribbon = SimpleRibbon<1>;
@@ -229,26 +176,6 @@ public:
 		return ribbon.sizeBytes() * 8;
 	}
 };
-
-// TODO: Code duplication with Consensus variant, extract
-namespace {
-	struct Key {
-		uint64_t bucket, fingerprint;
-		Hash128 hash;
-	};
-
-	template<typename R>
-	void sort_keys(R &&r) {
-		std::sort(r.begin(), r.end(), [](const Key &a, const Key &b) {
-			return a.bucket < b.bucket || (a.bucket == b.bucket && a.fingerprint < b.fingerprint);
-		});
-		// TODO: Use ips2ra again, which does not natively support uint128
-		//ips2ra::sort(r.begin(), r.end(),
-		//  [](const Key &key) -> unsigned __int128 {
-		//	return (unsigned __int128)key.bucket << 64 | key.fingerprint;
-		//});
-	}
-}
 
 template<uint64_t K, double OVERLOAD, int THRESHOLD_SIZE_HALFBITS, typename Filter = DummyFilter>
 class ThresholdBasedBumping {

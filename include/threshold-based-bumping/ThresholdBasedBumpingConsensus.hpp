@@ -17,78 +17,14 @@
 #include <Fips.h>
 
 #include <hash128.hpp>
+#include "common.hpp"
 #include "consensus.hpp"
 
-// TODO Is this still needed?
-#if 0
-/* highly illegal hack */
-namespace tlx {
-	template<>
-	inline unsigned clz<unsigned __int128>(unsigned __int128 i) {
-		return std::countl_zero(i);
-	}
-
-	template<>
-	inline unsigned ctz<unsigned __int128>(unsigned __int128 i) {
-		return std::countr_zero(i);
-	}
-};
-#endif
-
-// TODO: Add non-consensus variant as well
 namespace kphf::ThresholdBasedBumpingConsensus {
 
-template<uint64_t n_thresholds>
-constexpr std::array<uint64_t, n_thresholds>
-  compute_thresholds(uint64_t _k, double bucket_size) {
-	double lo = 0, hi = _k;
-
-	for (int i = 0; i < 100; i++) {
-		double mid = (lo+hi)/2;
-		double prev = 0, cur = mid;
-		for (uint64_t j = 0; j < n_thresholds-1; j++) {
-			double x = cur / _k - prev / _k * std::pow(prev / cur, _k-1);
-			prev = cur;
-			if (x >= 1) {
-				cur = std::numeric_limits<double>::infinity();
-				break;
-			} else {
-				cur -= std::log1p(-x);
-			}
-		}
-		if (cur > bucket_size
-		  || cur / _k - prev / _k * std::pow(prev / cur, _k-1) > 1) {
-			hi = mid;
-		} else {
-			lo = mid;
-		}
-	}
-
-	auto convert = [](double x) -> uint64_t {
-		x = std::round(std::ldexp(x, 64));
-		if (x >= std::ldexp(1, 64)) {
-			return std::numeric_limits<uint64_t>::max();
-		} else {
-			return uint64_t(x);
-		}
-	};
-
-	std::array<uint64_t, n_thresholds> res;
-	double prev = 0, cur = lo;
-	for (uint64_t idx = 0; idx < n_thresholds; idx++) {
-		res[idx] = convert(cur / bucket_size);
-		double x = cur / _k - prev / _k * std::pow(prev / cur, _k-1);
-		prev = cur;
-		if (x == 1.0) cur = std::numeric_limits<double>::infinity();
-		else cur -= std::log1p(-x);
-	}
-
-	return res;
-}
-
 constexpr double TUNE = 1.05;
-auto compute_thresholds(uint64_t k, double lamda, int threshold_size) ->
-  std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> {
+std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
+		compute_thresholds(uint64_t k, double lamda, int threshold_size) {
 	auto poisson = [](double lamda, uint64_t k) -> double {
 		return exp(k * log(lamda) - lamda - lgamma(k+1));
 	};
@@ -228,25 +164,6 @@ void dump_stats() {
 }
 #endif
 
-struct Key {
-	uint64_t bucket, fingerprint;
-	Hash128 hash;
-};
-
-namespace {
-	template<typename R>
-	void sort_buckets(R &&r) {
-		ips2ra::sort(r.begin(), r.end(),
-		  [](const Key &key) -> uint64_t { return key.bucket; });
-	}
-
-	template<typename R>
-	void sort_fingerprints(R &&r) {
-		ips2ra::sort(r.begin(), r.end(),
-		  [](const Key &key) -> uint64_t { return key.fingerprint; });
-	}
-}
-
 struct SharedData {
 	uint64_t k;
 	double overload;
@@ -271,7 +188,7 @@ private:
 	std::vector<std::pair<uint64_t, Consensus>> layers;
 	fips::FiPS<> phf;
 	mutable sux::bits::EliasFano<> gaps;
-
+	using Key = kphf::ThresholdBasedBumping::Key;
 public:
 
 	uint64_t operator()(Hash128 key) const {
@@ -324,15 +241,14 @@ private:
 		std::span<uint64_t> thresholds;
 		std::span<std::pair<uint64_t, uint64_t>> errors;
 
-		Builder(SharedData *shared, std::vector<Hash128> &hashes,
-		  uint64_t layer, uint64_t buckets, uint64_t offset,
-		  std::vector<uint64_t> *spots):
-		  keys(std::move(prepare(hashes, layer, buckets))),
-		  current(keys.begin(), keys.begin()),
-		  cur_bucket(0), total_buckets(buckets), layer(layer), offset(offset),
-		  spots(spots), bumped(&hashes),
-		  k(shared->k), threshold_size(shared->threshold_size),
-		  thresholds(shared->thresholds), errors(shared->errors) {
+		Builder(SharedData *shared, std::vector<Hash128> &hashes, uint64_t layer, uint64_t buckets,
+			uint64_t offset, std::vector<uint64_t> *spots)
+				: keys(std::move(prepare(hashes, layer, buckets))),
+				  current(keys.begin(), keys.begin()),
+				  cur_bucket(0), total_buckets(buckets), layer(layer), offset(offset),
+				  spots(spots), bumped(&hashes),
+				  k(shared->k), threshold_size(shared->threshold_size),
+				  thresholds(shared->thresholds), errors(shared->errors) {
 			bumped->clear();
 		}
 
@@ -415,7 +331,8 @@ private:
 			}
 			for (uint64_t tidx = prev; tidx > 0;) {
 				tidx--;
-				auto it = std::ranges::lower_bound(current, thresholds[tidx], {}, [](Key k) -> std::uint64_t { return k.fingerprint; });
+				auto it = std::ranges::lower_bound(current, thresholds[tidx], {},
+					[](Key k) -> std::uint64_t { return k.fingerprint; });
 				uint64_t idx = it - current.begin();
 				uint64_t error = goal - idx;
 				if (error > error_bound) break;
