@@ -17,17 +17,11 @@ class HashDisplaceContender : public Contender {
             return std::string("HashDisplace")
                     + " bucketSize=" + std::to_string(bucketSize)
                     + " bucketFunction=" + BucketFunction::name()
-                    + " encoding=" + typeid(Encoding).name(); // TODO: Support calling Encoding::name()
+                    + " encoding=" + Encoding::name();
         }
 
         void construct(const std::vector<std::string> &keys) override {
-            // TODO: Directly take strings in constructor as well
-            std::vector<Hash128> keysHashed;
-            keysHashed.reserve(keys.size());
-            for (auto &key : keys) {
-                keysHashed.emplace_back(Hash128(key));
-            }
-            kphf = kphf::HashDisplace::HashDisplace<k, BucketFunction, Encoding>(keysHashed, bucketSize);
+            kphf = kphf::HashDisplace::HashDisplace<k, BucketFunction, Encoding>(keys, bucketSize);
         }
 
         size_t sizeBits() override {
@@ -36,14 +30,14 @@ class HashDisplaceContender : public Contender {
 
         void performQueries(const std::span<std::string> keys) override {
             auto x = [&] (std::string &key) {
-                return kphf(Hash128(key));
+                return kphf(key);
             };
             doPerformQueries(keys, x);
         }
 
         void performTest(const std::span<std::string> keys) override {
             auto x = [&] (std::string &key) {
-                return kphf(Hash128(key));
+                return kphf(key);
             };
             doPerformTest(keys, x);
         }

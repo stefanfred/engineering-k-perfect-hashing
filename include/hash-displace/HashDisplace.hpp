@@ -53,6 +53,10 @@ class HashDisplace {
         BucketFunction bucketFunction;
         Encoding seeds;
     public:
+        uint64_t operator()(const std::string &item) const {
+            return operator()(Hash128(item));
+        }
+
         uint64_t operator()(Hash128 item) const {
             uint64_t bucket = bucketFunction(item.hi);
             uint64_t seed = seeds[bucket];
@@ -68,7 +72,7 @@ class HashDisplace {
             : nbuckets(0), nbins(0), bucketFunction(0, 1.0) {
         }
 
-        HashDisplace(const std::vector<Hash128> &items, uint64_t bucket_size, double load_factor = 1.0)
+        HashDisplace(const std::vector<std::string> &items, uint64_t bucket_size, double load_factor = 1.0)
             : nbuckets((items.size() + bucket_size - 1) / bucket_size),
               nbins(ceil(items.size() / load_factor / k)),
               bucketFunction(nbuckets, load_factor) {
@@ -80,13 +84,13 @@ class HashDisplace {
             }
 
             auto r = std::views::transform(items,
-                   [&](Hash128 item) -> std::pair<uint64_t, uint64_t> {
-                       return {bucketFunction(item.hi), item.lo};
+                   [&](const std::string &item) -> std::pair<uint64_t, uint64_t> {
+                       Hash128 hash(item);
+                       return {bucketFunction(hash.hi), hash.lo};
                    });
-            std::vector<std::pair<uint64_t, uint64_t> >
-                    sorted_items(r.begin(), r.end());
+            std::vector<std::pair<uint64_t, uint64_t>> sorted_items(r.begin(), r.end());
             ips2ra::sort(sorted_items.begin(), sorted_items.end(),
-                [](const std::pair<uint64_t, uint64_t> &key) -> uint64_t { return key.first; });
+                [](const std::pair<uint64_t, uint64_t> &key) { return key.first; });
 
             using Iter = decltype(sorted_items)::iterator;
             using Range = std::ranges::subrange<Iter>;
