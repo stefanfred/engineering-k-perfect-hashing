@@ -182,8 +182,8 @@ struct SharedData {
 
 class ThresholdBasedBumpingConsensus {
 private:
-    std::shared_ptr<SharedData> shared;
     uint64_t n;
+    std::shared_ptr<SharedData> shared;
     std::vector<std::pair<uint64_t, Consensus>> layers;
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
