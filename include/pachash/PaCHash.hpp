@@ -50,8 +50,9 @@ private:
 	EliasFano ef;
 	mutable SimpleRibbon<1> ribbon;
 
-	PaCHash(uint64_t n_buckets, EliasFano &&ef, SimpleRibbon<1> &&ribbon):
-	  n_buckets(n_buckets), ef(std::move(ef)), ribbon(std::move(ribbon)) {}
+	PaCHash(uint64_t n_buckets, EliasFano &&ef, SimpleRibbon<1> &&ribbon)
+		: n_buckets(n_buckets), ef(std::move(ef)), ribbon(std::move(ribbon)) {
+	}
 
 public:
 	PaCHash() : n_buckets(0) {
@@ -59,6 +60,13 @@ public:
 
 	PaCHash(int k, double bucket_size, const std::vector<Hash128> &keys):
 	  PaCHash(std::move(build(k, bucket_size, keys))) {}
+
+	PaCHash(int k, double bucket_size, const std::vector<std::string> &keys):
+		PaCHash(std::move(build(k, bucket_size, keys))) {}
+
+	uint64_t operator()(const std::string &item) const {
+		return operator()(Hash128(item));
+	}
 
 	uint64_t operator()(Hash128 key) const {
 		uint64_t bucket = bytehamster::util::fastrange64(key.hi, n_buckets);
@@ -79,14 +87,23 @@ public:
 	}
 
 private:
-	static PaCHash build(int k, double bucket_size,
-	  std::vector<Hash128> keys) {
+	static PaCHash build(int k, double bucket_size, const std::vector<std::string> &keys) {
+		uint64_t n_buckets = std::ceil(keys.size() / bucket_size);
+		std::vector<Hash128> keysHashed;
+		keysHashed.reserve(keys.size());
+		for (const std::string & key : keys) {
+			Hash128 hash(key);
+			hash.hi = bytehamster::util::fastrange64(hash.hi, n_buckets);
+			keysHashed.push_back(hash);
+		}
+		return build(k, bucket_size, keysHashed);
+	}
+
+	static PaCHash build(int k, double bucket_size, std::vector<Hash128> keys) {
 		uint64_t n_bins = (keys.size() + k - 1) / k;
 		uint64_t n_buckets = std::ceil(keys.size() / bucket_size);
 
-		for (Hash128 &key: keys) key.hi = bytehamster::util::fastrange64(key.hi, n_buckets);
-		ips2ra::sort(keys.begin(), keys.end(),
-			[](const Hash128 &key) -> uint64_t { return key.hi; });
+		ips2ra::sort(keys.begin(), keys.end(),[](const Hash128 &key) -> uint64_t { return key.hi; });
 		std::vector<uint64_t> bucket_sizes(n_buckets);
 		for (uint64_t i = 0; i < keys.size(); i++) {
 			bucket_sizes[keys[i].hi]++;

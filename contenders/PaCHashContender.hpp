@@ -8,7 +8,7 @@ class PaCHashContender : public Contender {
         kphf::PaCHash::PaCHash kphf;
         double a;
 
-        PaCHashContender(size_t N, size_t k, double a)
+        PaCHashContender(const size_t N, const size_t k, const double a)
                 : Contender(N, k, 1.0), a(a) {
         }
 
@@ -18,13 +18,7 @@ class PaCHashContender : public Contender {
         }
 
         void construct(const std::vector<std::string> &keys) override {
-            // TODO: Directly take strings in constructor as well
-            std::vector<Hash128> keysHashed;
-            keysHashed.reserve(keys.size());
-            for (auto &key : keys) {
-                keysHashed.emplace_back(Hash128(key));
-            }
-            kphf = kphf::PaCHash::PaCHash(k_contender, a, keysHashed);
+            kphf = kphf::PaCHash::PaCHash(k_contender, a, keys);
         }
 
         size_t sizeBits() override {
@@ -32,15 +26,15 @@ class PaCHashContender : public Contender {
         }
 
         void performQueries(const std::span<std::string> keys) override {
-            auto x = [&] (std::string &key) {
-                return kphf(Hash128(key));
+            auto x = [&] (const std::string &key) {
+                return kphf(key);
             };
             doPerformQueries(keys, x);
         }
 
         void performTest(const std::span<std::string> keys) override {
-            auto x = [&] (std::string &key) {
-                return kphf(Hash128(key));
+            auto x = [&] (const std::string &key) {
+                return kphf(key);
             };
             doPerformTest(keys, x);
         }
