@@ -14,6 +14,8 @@ void dispatchK(size_t k, size_t N) {
         Runner<10>()(N);
     } else if (k == 100) {
         Runner<100>()(N);
+    } else if (k == 1000) {
+        Runner<1000>()(N);
     } else {
         throw std::invalid_argument("Value of k not compiled into this binary");
     }
