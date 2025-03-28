@@ -288,12 +288,13 @@ public:
             std::vector<Key> sorted_keys(r.begin(), r.end());
             keys.clear();
 
-            sort_keys(sorted_keys);
+            sort_buckets(sorted_keys);
             auto next = sorted_keys.begin();
             for (uint64_t j = 0; j < cur_buckets; j++) {
                 auto start = next;
                 while (next != sorted_keys.end() && next->bucket == j) ++next;
                 auto bucket = std::ranges::subrange(start, next);
+                sort_fingerprints(bucket);
                 uint64_t tidx;
                 typename std::vector<Key>::iterator perfect;
                 if (bucket.size() <= _k) {
