@@ -178,7 +178,7 @@ public:
     }
 };
 
-template<uint64_t K, double OVERLOAD, int THRESHOLD_SIZE_HALFBITS, typename Filter = DummyFilter>
+template<uint64_t K, double OVERLOAD, int THRESHOLD_SIZE_HALFBITS, typename Filter = RibbonFilter>
 class ThresholdBasedBumping {
     static_assert(OVERLOAD > 1.0);
     static_assert(THRESHOLD_SIZE_HALFBITS >= 2);
