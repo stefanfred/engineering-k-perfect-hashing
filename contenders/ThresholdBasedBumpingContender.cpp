@@ -18,7 +18,7 @@ template <size_t k>
 struct ThresholdBasedBumpingContenderRunner {
     void operator() (size_t N) const {
         // TODO: Where does this come from?
-        constexpr size_t x = std::max(2ul, static_cast<size_t>(gcem::log2(2 * std::numbers::pi * k) / 2));
+        constexpr size_t x = std::max(2ul, static_cast<size_t>(2 * gcem::log2(2 * std::numbers::pi * k) / 2));
         dispatchX<k, x, x + 8>(N);
     }
 };
