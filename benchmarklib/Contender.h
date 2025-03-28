@@ -151,7 +151,7 @@ class Contender {
                     throw std::logic_error("Range wrong");
                 }
                 if (taken[retrieved] >= k_contender) {
-                    std::cout<<"Error: More than k collisions: Key #"<<i<<"/"<<N<<" resulted in "<<retrieved<<": "<<keys[i]<<std::endl;
+                    std::cout<<"Error: More than k collisions: Key #"<<i<<"/"<<N<<" resulted in "<<retrieved<<std::endl;
                     std::cout<<"Aborting query"<<std::endl;
                     throw std::logic_error("Collision");
                 }
