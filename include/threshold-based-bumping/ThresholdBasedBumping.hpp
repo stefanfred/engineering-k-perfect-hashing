@@ -26,8 +26,95 @@ uint64_t select_bucket(uint64_t z, uint64_t nbuckets) {
     return ((unsigned __int128) z * nbuckets) >> 64;
 }
 
+constexpr double gammapdf(double x, double rate, double shape) {
+    if (x < 0.000001) {
+        return 0.0;
+    }
+    double expo = (shape - 1) * log(x) - rate * x + shape * log(rate) + shape - shape * log(shape);
+    return exp(expo);
+}
+
+struct PrecomputedIntegral {
+    static constexpr size_t granularity = 10000;
+    double vals[granularity];
+
+    PrecomputedIntegral(double rate, double shape) {
+        double sum = 0;
+        vals[0]=0;
+        for (size_t i = 1; i < granularity; ++i) {
+            double x = (double(i) + 0.5) / (granularity-1);
+            sum += gammapdf(x, rate, shape) / x;
+            vals[i] = sum / (granularity-1);
+        }
+    }
+
+    double operator()(double x) {
+        double index = x * double(granularity - 1);
+        size_t indexN = size_t(index);
+        if(indexN==granularity-1) {
+            return vals[indexN];
+        }
+        double inter = index - double(indexN);
+        return std::lerp(vals[indexN], vals[indexN + 1], inter);
+    }
+};
+
 template<uint64_t n_thresholds>
-constexpr std::array<uint64_t, n_thresholds> compute_thresholds(uint64_t _k, double bucket_size) {
+std::array<uint64_t, n_thresholds> compute_thresholds(uint64_t _k, double bucket_size) {
+    double shape = _k + 1;
+    double rate = bucket_size;
+    PrecomputedIntegral prec(rate, shape);
+    std::array<double, n_thresholds> res;
+    double delta = 0.5;
+    res[n_thresholds - 1] = 1.0; // last must be 1.0
+    res[n_thresholds - 2] = 1.0 - delta; // initial guess for previous
+    while (true) { //binary search
+        bool fail = false;
+        for (int64_t i = int64_t(n_thresholds) - 3; i >= 0; --i) {
+            res[i] = res[i + 1] -
+                     (res[i + 1] * (prec(res[i + 2]) - prec(res[i + 1]))) / gammapdf(res[i + 1], rate, shape);
+            if (res[i] >= 1.0) {
+                delta /= 2.0;
+                res[n_thresholds - 2] -= delta;
+                fail = true;
+                break;
+            }
+            if (res[i] < 0.0) {
+                delta /= 2.0;
+                res[n_thresholds - 2] += delta;
+                fail = true;
+                break;
+            }
+        }
+        if (fail) {
+            continue;
+        }
+        if (res[0] > 0.001) {
+            delta /= 2.0;
+            res[n_thresholds - 2] -= delta;
+            continue;
+        }
+        res[0] = 0.0;
+
+
+        std::array<uint64_t, n_thresholds> raw;
+        auto convert = [](double x) -> uint64_t {
+            x = std::round(std::ldexp(x, 64));
+            if (x >= std::ldexp(1, 64)) {
+                return std::numeric_limits<uint64_t>::max();
+            } else {
+                return uint64_t(x);
+            }
+        };
+        for (size_t i = 0; i < n_thresholds; ++i) {
+            raw[i] = convert(res[i]);
+        }
+        return raw;
+    }
+}
+
+template<uint64_t n_thresholds>
+constexpr std::array<uint64_t, n_thresholds> compute_thresholds_old(uint64_t _k, double bucket_size) {
     double lo = 0, hi = _k;
 
     for (int i = 0; i < 100; i++) {
@@ -193,7 +280,7 @@ private:
     static constexpr uint64_t n_thresholds = n_regions - 1;
     static constexpr double overload_bucket_size = _k * overload;
 
-    static constexpr std::array<uint64_t, n_thresholds> avail_thresholds = compute_thresholds<n_thresholds>(_k, overload_bucket_size);
+    std::array<uint64_t, n_thresholds> avail_thresholds = compute_thresholds<n_thresholds>(_k, overload_bucket_size);
 
     uint64_t n;
     std::vector<uint64_t> nbuckets;
