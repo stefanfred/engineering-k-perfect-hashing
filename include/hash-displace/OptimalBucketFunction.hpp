@@ -8,11 +8,11 @@
 
 namespace kphf::HashDisplace {
 namespace optimal_bucket_function {
-constexpr double poission_pmf(int i, double lambda) {
-    return gcem::pow(M_E, i * gcem::log(lambda) - lambda - gcem::lgamma(i + 1.0));
+double poission_pmf(int i, double lambda) {
+    return exp(i * log(lambda) - lambda - lgamma(i + 1.0));
 }
 
-constexpr double expected_truncated(int maxEx, double lambda, bool weighted) {
+double expected_truncated(int maxEx, double lambda, bool weighted) {
     double exp = 0.0;
     for (int i = 0; i < maxEx; ++i) {
         exp += poission_pmf(i, lambda) * (weighted ? i : 1.0);
@@ -20,17 +20,16 @@ constexpr double expected_truncated(int maxEx, double lambda, bool weighted) {
     return exp;
 }
 
-constexpr std::pair<double, double> alphaAndRelSize(int k, double lambda) {
+std::pair<double, double> alphaAndRelSize(int k, double lambda) {
     double alphaNotFull = expected_truncated(k, lambda, true) / k;
     double prob = expected_truncated(k, lambda, false);
     return {1.0 - prob + alphaNotFull, -log(prob)};
 }
 
-constexpr void buildRec(std::vector<std::pair<double, double> > &samples, double deltaX, double llamb, double rlamb, int k) {
+void buildRec(std::vector<std::pair<double, double> > &samples, double deltaX, double llamb, double rlamb, int k) {
     std::pair<double, double> left = alphaAndRelSize(k, llamb);
     std::pair<double, double> right = alphaAndRelSize(k, rlamb);
 
-    //double area = (left.second + right.second) / 2.0 * (right.first - left.first);
     if (right.first - left.first < deltaX)
         return;
     double midPoint = (rlamb + llamb) / 2.0;
@@ -42,10 +41,11 @@ constexpr void buildRec(std::vector<std::pair<double, double> > &samples, double
     }
 }
 
-constexpr std::vector<uint64_t> getBucketFunctionFulcrums(int k, int fulcs) {
+std::vector<uint64_t> getBucketFunctionFulcrums(int k, int fulcs) {
     std::vector<std::pair<double, double> > samples;
     double leftLimit = k * 0.0001;
     double rightLimit = k * 10;
+
     buildRec(samples, 0.1 / fulcs, leftLimit, rightLimit, k);
 
     std::vector<std::pair<double, double> > integral;

@@ -16,10 +16,6 @@ struct HashDisplaceContenderRunner {
             size_t bucketSize = (b * i) / 10;
             HashDisplaceContender<k, OptimalBucketFunction<k>, CompactEncoding>(N, bucketSize).run();
             HashDisplaceContender<k, OptimalBucketFunction<k>, RiceEncoding>(N, bucketSize).run();
-            if (k <= 10) {
-                // Too slow otherwise
-                HashDisplaceContender<k, UniformBucketFunction, CompactEncoding>(N, bucketSize).run();
-            }
         }
     }
 };
