@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24...3.31)
+cmake_minimum_required(VERSION 3.24...4.0)
 project(kPerfectHashing)
 
 if(NOT CMAKE_BUILD_TYPE)
