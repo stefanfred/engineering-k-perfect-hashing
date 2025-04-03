@@ -101,9 +101,8 @@ double eval(uint64_t max_n, size_t k, double lamda, const std::vector<double> &t
     return badness;
 }
 
-std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
-        compute_thresholds(uint64_t k, double lamda, int threshold_size) {
-
+template <uint64_t k, double lamda, int threshold_size>
+std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> compute_thresholds() {
     uint64_t n_thresholds = 1ul << threshold_size;
     std::vector<double> thresholds(n_thresholds);
     for (uint64_t i = 0; i < n_thresholds; i++) {
@@ -185,7 +184,6 @@ private:
     static_assert(k > 0);
     uint64_t n;
     std::vector<uint64_t> thresholds;
-    std::vector<std::pair<uint64_t, uint64_t>> errors;
     std::vector<std::pair<uint64_t, Consensus>> layers;
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
@@ -203,7 +201,9 @@ public:
             tidx = decrypt(seed, tidx);
             uint64_t f = bytehamster::util::remix(key.lo + seed + i);
 
-            if (f < thresholds[tidx]) return offset + b;
+            if (f < thresholds[tidx]) {
+                return offset + b;
+            }
 
             offset += cur_buckets;
         }
@@ -239,8 +239,8 @@ private:
         std::vector<uint64_t> *spots;
         std::vector<Hash128> *bumped;
 
-        std::span<uint64_t> thresholds;
-        std::span<std::pair<uint64_t, uint64_t>> errors;
+        const std::span<uint64_t> &thresholds;
+        const std::span<std::pair<uint64_t, uint64_t>> errors; // TODO: Making this a reference causes construction to hang
 
         Builder(const std::span<uint64_t> &thresholds,
             const std::span<std::pair<uint64_t, uint64_t>> &errors,
@@ -359,9 +359,10 @@ private:
 
     explicit ThresholdBasedBumpingConsensus(std::vector<Hash128> &keys)
             : n(keys.size()), gaps({}, 0) {
+        std::vector<std::pair<uint64_t, uint64_t>> errors;
         auto begin = std::chrono::high_resolution_clock::now();
         std::cout<<"Begin calculating thresholds"<<std::endl;
-        std::tie(thresholds, errors) = compute_thresholds(k, overload, threshold_size);
+        std::tie(thresholds, errors) = compute_thresholds<k, overload, threshold_size>();
         std::cout<<"Complete calculating thresholds" << std::endl;
         auto end = std::chrono::high_resolution_clock::now();
         std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
