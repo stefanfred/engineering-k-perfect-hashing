@@ -177,12 +177,13 @@ void dump_stats() {
 }
 #endif
 
+template <uint64_t k, double overload, int threshold_size>
 class ThresholdBasedBumpingConsensus {
 private:
+    static_assert(overload > 1.0);
+    static_assert(threshold_size >= 1);
+    static_assert(k > 0);
     uint64_t n;
-    uint64_t k;
-    double overload;
-    int threshold_size;
     std::vector<uint64_t> thresholds;
     std::vector<std::pair<uint64_t, uint64_t>> errors;
     std::vector<std::pair<uint64_t, Consensus>> layers;
@@ -199,7 +200,7 @@ public:
             uint64_t b = bytehamster::util::fastrange64(h, cur_buckets);
             auto [seed,tidx] =
               consensus.get(b * threshold_size, threshold_size);
-            tidx = decrypt(seed, tidx, threshold_size);
+            tidx = decrypt(seed, tidx);
             uint64_t f = bytehamster::util::remix(key.lo + seed + i);
 
             if (f < thresholds[tidx]) return offset + b;
@@ -212,7 +213,9 @@ public:
 
     size_t count_bits() const {
         size_t s = 0;
-        for (auto &[nb,c]: layers) s += c.count_bits() - sizeof(c) * 8;
+        for (auto &[nb,c] : layers) {
+            s += c.count_bits() - sizeof(c) * 8;
+        }
         return sizeof(*this) * 8
             + layers.capacity() * sizeof(layers[0])
             + s
@@ -221,12 +224,12 @@ public:
     }
 
 private:
-    static inline uint64_t encrypt(uint64_t key, uint64_t tidx, uint64_t threshold_size) {
-        return (tidx ^ bytehamster::util::remix(key)) & ((uint64_t(1) << threshold_size) - 1);
+    static inline uint64_t encrypt(uint64_t key, uint64_t tidx) {
+        return (tidx ^ bytehamster::util::remix(key)) & ((1ul << threshold_size) - 1);
     }
 
-    static inline uint64_t decrypt(uint64_t key, uint64_t tidx, uint64_t threshold_size) {
-        return (tidx ^ bytehamster::util::remix(key)) & ((uint64_t(1) << threshold_size) - 1);
+    static inline uint64_t decrypt(uint64_t key, uint64_t tidx) {
+        return (tidx ^ bytehamster::util::remix(key)) & ((1ul << threshold_size) - 1);
     }
 
     struct Builder {
@@ -236,12 +239,10 @@ private:
         std::vector<uint64_t> *spots;
         std::vector<Hash128> *bumped;
 
-        uint64_t k, threshold_size;
         std::span<uint64_t> thresholds;
         std::span<std::pair<uint64_t, uint64_t>> errors;
 
-        Builder(uint64_t k, uint64_t threshold_size,
-            const std::span<uint64_t> &thresholds,
+        Builder(const std::span<uint64_t> &thresholds,
             const std::span<std::pair<uint64_t, uint64_t>> &errors,
             std::vector<Hash128> &hashes, uint64_t layer, uint64_t buckets,
             uint64_t offset, std::vector<uint64_t> *spots)
@@ -249,15 +250,13 @@ private:
                   current(keys.begin(), keys.begin()),
                   cur_bucket(0), total_buckets(buckets), layer(layer), offset(offset),
                   spots(spots), bumped(&hashes),
-                  k(k), threshold_size(threshold_size),
                   thresholds(thresholds), errors(errors) {
             bumped->clear();
         }
 
         static std::vector<Key> prepare(const std::vector<Hash128> &hashes,
           uint64_t seed, uint64_t n_buckets) {
-            auto r = std::views::transform(hashes,
-              [seed, n_buckets](Hash128 key) {
+            auto r = std::views::transform(hashes, [seed, n_buckets](Hash128 key) {
                 uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + seed), n_buckets);
                 return Key { b, 0, key };
             });
@@ -267,7 +266,9 @@ private:
         }
 
         std::optional<uint64_t> advance(uint64_t seed) {
-            if (cur_bucket == total_buckets) return {};
+            if (cur_bucket == total_buckets) {
+                return {};
+            }
 
             auto it = current.end();
             while (it != keys.end() && it->bucket == cur_bucket) {
@@ -298,8 +299,7 @@ private:
             current = std::ranges::subrange(it, current.begin());
 
             uint64_t cnt = 0;
-            while (!spots->empty() &&
-              spots->back() == offset + cur_bucket - 1) {
+            while (!spots->empty() && spots->back() == offset + cur_bucket - 1) {
                 spots->pop_back();
                 cnt++;
             }
@@ -319,33 +319,34 @@ private:
         }
 
         std::optional<uint64_t> find_next(uint64_t seed, uint64_t prev) {
-            return find(seed, decrypt(seed, prev, threshold_size));
+            return find(seed, decrypt(seed, prev));
         }
 
         std::optional<uint64_t> find(uint64_t seed, uint64_t prev) {
             uint64_t goal = std::min(k, current.size());
             uint64_t error_bound, error_prob;
             if (current.size() < errors.size()) {
-                std::tie(error_bound, error_prob) =
-                  errors[current.size()];
+                std::tie(error_bound, error_prob) = errors[current.size()];
             } else {
                 error_bound = k+1, error_prob = 0;
             }
             for (uint64_t tidx = prev; tidx > 0;) {
                 tidx--;
                 auto it = std::ranges::lower_bound(current, thresholds[tidx], {},
-                    [](Key k) -> std::uint64_t { return k.fingerprint; });
+                    [](const Key &key) { return key.fingerprint; });
                 uint64_t idx = it - current.begin();
                 uint64_t error = goal - idx;
-                if (error > error_bound) break;
+                if (error > error_bound) {
+                    break;
+                }
                 if (error < error_bound || bytehamster::util::remix(seed + tidx) < error_prob) {
-                    for (Key &k: current | std::views::drop(idx)) {
-                        bumped->push_back(k.hash);
+                    for (Key & key: current | std::views::drop(idx)) {
+                        bumped->push_back(key.hash);
                     }
                     for (uint64_t x = idx; x < k; x++) {
                         spots->push_back(offset + cur_bucket - 1);
                     }
-                    return encrypt(seed, tidx, threshold_size);
+                    return encrypt(seed, tidx);
                 }
             }
             return {};
@@ -356,11 +357,8 @@ private:
     ThresholdBasedBumpingConsensus() : n(0), gaps({}, 0) {
     }
 
-    ThresholdBasedBumpingConsensus(size_t k, std::vector<Hash128> &keys, double overload, size_t threshold_size)
-            : n(keys.size()), k(k), overload(overload), threshold_size(threshold_size), gaps({}, 0) {
-        assert(overload > 1.0);
-        assert(threshold_size >= 1);
-        assert(k > 0);
+    explicit ThresholdBasedBumpingConsensus(std::vector<Hash128> &keys)
+            : n(keys.size()), gaps({}, 0) {
         auto begin = std::chrono::high_resolution_clock::now();
         std::cout<<"Begin calculating thresholds"<<std::endl;
         std::tie(thresholds, errors) = compute_thresholds(k, overload, threshold_size);
@@ -386,7 +384,7 @@ private:
                 cur_buckets = remaining;
             }
 
-            Builder builder(k, threshold_size, thresholds, errors, keys, i, cur_buckets, offset, &spots);
+            Builder builder(thresholds, errors, keys, i, cur_buckets, offset, &spots);
             Consensus consensus(builder);
 
             layers.emplace_back(cur_buckets, std::move(consensus));
@@ -413,9 +411,11 @@ private:
             actual_spots[h] = 1;
         }
         auto it = spots.begin();
-        for (uint64_t &x: actual_spots) {
+        for (uint64_t &x : actual_spots) {
             uint64_t v = *it;
-            if (x) ++it;
+            if (x) {
+                ++it;
+            }
             x = v;
         }
         gaps = sux::bits::EliasFano<>(actual_spots, total_buckets);

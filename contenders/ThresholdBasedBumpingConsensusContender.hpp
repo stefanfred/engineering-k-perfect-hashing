@@ -3,20 +3,19 @@
 #include <ThresholdBasedBumpingConsensus.hpp>
 #include "Contender.h"
 
+template <uint64_t k, double overload, int threshold_size>
 class ThresholdBasedBumpingConsensusContender : public Contender {
     public:
-        kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus kphf;
-        double overload;
-        size_t thresholdSize;
+        using kphf_t = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus<k, overload, threshold_size>;
+        kphf_t kphf;
 
-        ThresholdBasedBumpingConsensusContender(size_t N, size_t k, double overload, size_t thresholdSize)
-                : Contender(N, k, 1.0), overload(overload), thresholdSize(thresholdSize) {
+        explicit ThresholdBasedBumpingConsensusContender(size_t N) : Contender(N, k, 1.0) {
         }
 
         std::string name() override {
             return std::string("ThresholdBasedBumpingConsensus")
                     + " overload=" + std::to_string(overload)
-                    + " thresholdSize=" + std::to_string(thresholdSize);
+                    + " thresholdSize=" + std::to_string(threshold_size);
         }
 
         void construct(const std::vector<std::string> &keys) override {
@@ -26,7 +25,7 @@ class ThresholdBasedBumpingConsensusContender : public Contender {
             for (auto &key : keys) {
                 keysHashed.emplace_back(Hash128(key));
             }
-            kphf = kphf::ThresholdBasedBumpingConsensus::ThresholdBasedBumpingConsensus(k_contender, keysHashed, overload, thresholdSize);
+            kphf = kphf_t(keysHashed);
         }
 
         size_t sizeBits() override {
