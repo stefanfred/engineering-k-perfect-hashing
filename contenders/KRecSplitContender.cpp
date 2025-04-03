@@ -17,7 +17,8 @@ struct KRecSplitContenderRunner {
         dispatchBucketSize<k, 2>(N);
         if constexpr (k <= 100) {
             dispatchBucketSize<k, 4>(N);
-        } if constexpr (k <= 50) {
+        }
+        if constexpr (k <= 50) {
             dispatchBucketSize<k, 6>(N);
         }
     }
