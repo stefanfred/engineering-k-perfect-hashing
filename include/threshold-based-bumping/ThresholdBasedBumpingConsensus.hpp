@@ -177,31 +177,14 @@ void dump_stats() {
 }
 #endif
 
-struct SharedData {
+class ThresholdBasedBumpingConsensus {
+private:
+    uint64_t n;
     uint64_t k;
     double overload;
     int threshold_size;
     std::vector<uint64_t> thresholds;
     std::vector<std::pair<uint64_t, uint64_t>> errors;
-
-    SharedData(uint64_t k, double overload, int threshold_size)
-            : k(k), overload(overload), threshold_size(threshold_size) {
-        assert(overload > 1.0);
-        assert(threshold_size >= 1);
-        assert(k > 0);
-        auto begin = std::chrono::high_resolution_clock::now();
-        std::cout<<"Begin calculating thresholds"<<std::endl;
-        std::tie(thresholds, errors) = compute_thresholds(k, overload, threshold_size);
-        std::cout<<"Complete calculating thresholds" << std::endl;
-        auto end = std::chrono::high_resolution_clock::now();
-        std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
-    }
-};
-
-class ThresholdBasedBumpingConsensus {
-private:
-    uint64_t n;
-    std::shared_ptr<SharedData> shared;
     std::vector<std::pair<uint64_t, Consensus>> layers;
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
@@ -215,11 +198,11 @@ public:
             uint64_t h = bytehamster::util::remix(key.hi + i);
             uint64_t b = bytehamster::util::fastrange64(h, cur_buckets);
             auto [seed,tidx] =
-              consensus.get(b * shared->threshold_size, shared->threshold_size);
-            tidx = decrypt(seed, tidx, shared->threshold_size);
+              consensus.get(b * threshold_size, threshold_size);
+            tidx = decrypt(seed, tidx, threshold_size);
             uint64_t f = bytehamster::util::remix(key.lo + seed + i);
 
-            if (f < shared->thresholds[tidx]) return offset + b;
+            if (f < thresholds[tidx]) return offset + b;
 
             offset += cur_buckets;
         }
@@ -257,14 +240,17 @@ private:
         std::span<uint64_t> thresholds;
         std::span<std::pair<uint64_t, uint64_t>> errors;
 
-        Builder(SharedData *shared, std::vector<Hash128> &hashes, uint64_t layer, uint64_t buckets,
+        Builder(uint64_t k, uint64_t threshold_size,
+            const std::span<uint64_t> &thresholds,
+            const std::span<std::pair<uint64_t, uint64_t>> &errors,
+            std::vector<Hash128> &hashes, uint64_t layer, uint64_t buckets,
             uint64_t offset, std::vector<uint64_t> *spots)
                 : keys(std::move(prepare(hashes, layer, buckets))),
                   current(keys.begin(), keys.begin()),
                   cur_bucket(0), total_buckets(buckets), layer(layer), offset(offset),
                   spots(spots), bumped(&hashes),
-                  k(shared->k), threshold_size(shared->threshold_size),
-                  thresholds(shared->thresholds), errors(shared->errors) {
+                  k(k), threshold_size(threshold_size),
+                  thresholds(thresholds), errors(errors) {
             bumped->clear();
         }
 
@@ -367,13 +353,22 @@ private:
     };
 
     public:
-    ThresholdBasedBumpingConsensus()
-        : n(0), shared(std::make_unique<SharedData>(8, 2.0, 3)), gaps({}, 0) {
+    ThresholdBasedBumpingConsensus() : n(0), gaps({}, 0) {
     }
 
-    ThresholdBasedBumpingConsensus(size_t k, std::vector<Hash128> &keys, double overload, size_t thresholdSize)
-            : n(keys.size()), shared(std::make_unique<SharedData>(k, overload, thresholdSize)), gaps({}, 0) {
-        double overload_bucket_size = k * shared->overload;
+    ThresholdBasedBumpingConsensus(size_t k, std::vector<Hash128> &keys, double overload, size_t threshold_size)
+            : n(keys.size()), k(k), overload(overload), threshold_size(threshold_size), gaps({}, 0) {
+        assert(overload > 1.0);
+        assert(threshold_size >= 1);
+        assert(k > 0);
+        auto begin = std::chrono::high_resolution_clock::now();
+        std::cout<<"Begin calculating thresholds"<<std::endl;
+        std::tie(thresholds, errors) = compute_thresholds(k, overload, threshold_size);
+        std::cout<<"Complete calculating thresholds" << std::endl;
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
+
+        double overload_bucket_size = k * overload;
         uint64_t total_buckets = (n + k - 1) / k;
 
 #ifdef STATS
@@ -391,7 +386,7 @@ private:
                 cur_buckets = remaining;
             }
 
-            Builder builder(shared.get(), keys, i, cur_buckets, offset, &spots);
+            Builder builder(k, threshold_size, thresholds, errors, keys, i, cur_buckets, offset, &spots);
             Consensus consensus(builder);
 
             layers.emplace_back(cur_buckets, std::move(consensus));
