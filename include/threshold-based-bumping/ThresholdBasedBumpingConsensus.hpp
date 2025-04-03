@@ -22,110 +22,123 @@
 
 namespace kphf::ThresholdBasedBumpingConsensus {
 
-constexpr double TUNE = 1.05;
+inline double poisson(double lamda, uint64_t k) {
+    return exp(k * log(lamda) - lamda - lgamma(k+1));
+}
+
+inline double success_prob(double threshold, uint64_t n, uint64_t k) {
+    if (k > n) {
+        return 0;
+    }
+    double lbinom = lgamma(n+1) - lgamma(k+1) - lgamma(n-k+1);
+    double l1 = log(threshold);
+    double l2 = log(1 - threshold);
+    if (std::isinf(l1)) {
+        return k == 0;
+    } else if (std::isinf(l2)) {
+        return k == n;
+    } else {
+        return exp(lbinom + k * l1 + (n-k) * l2);
+    }
+}
+
+inline uint64_t double_to_u64(double x) {
+    return x == 1.0 ? ~0ul : static_cast<uint64_t>(ldexp(x, 64));
+}
+
+void recomp(uint64_t max_n, const std::vector<double> &thresholds, std::vector<std::vector<double>> &success_exp) {
+    for (uint64_t n = 0; n <= max_n; n++) {
+        auto &v = success_exp[n];
+        for (uint64_t i = 0; i < v.size(); i++) {
+            double e = 0;
+            for (double t : thresholds) {
+                e += success_prob(t, n, i);
+            }
+            v[i] = e;
+        }
+    }
+}
+
+void set_threshold(uint64_t max_n, uint64_t i, double value, std::vector<double> &thresholds, std::vector<std::vector<double>> &success_exp) {
+    double old = std::exchange(thresholds[i], value);
+    for (uint64_t n = 0; n <= max_n; n++) {
+        auto &v = success_exp[n];
+        for (uint64_t i = 0; i < v.size(); i++) {
+            v[i] += success_prob(value, n, i) - success_prob(old, n, i);
+        }
+    }
+}
+
+std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<std::vector<double>> &success_exp) {
+    uint64_t goal = std::min(n, k);
+    constexpr double TUNE = 1.05;
+    double need = TUNE;
+    need -= success_exp[n][goal];
+    if (need <= 0) {
+        return {0,0};
+    }
+    double avg = 0;
+    for (uint64_t error = 1; error <= goal; error++) {
+        double s = success_exp[n][goal-error];
+        if (s >= need) {
+            return {error - 1 + need/s, avg + error * need};
+        }
+        need -= s;
+        avg += error * s;
+    }
+    return {goal, std::numeric_limits<double>::infinity()};
+}
+
+double eval(uint64_t max_n, size_t k, double lamda, const std::vector<double> &thresholds, const std::vector<std::vector<double>> &success_exp) {
+    if (!std::ranges::contains(thresholds, 0.0)) {
+        return std::numeric_limits<double>::infinity();
+    }
+    double exp = k * lamda;
+    double badness = 0;
+    for (uint64_t n = 0; n <= max_n; n++) {
+        badness += poisson(exp, n) * best_error(n, k, success_exp).second;
+    }
+    return badness;
+}
+
 std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
         compute_thresholds(uint64_t k, double lamda, int threshold_size) {
-    auto poisson = [](double lamda, uint64_t k) -> double {
-        return exp(k * log(lamda) - lamda - lgamma(k+1));
-    };
 
-    auto success_prob =
-      [](double threshold, uint64_t n, uint64_t k) -> double {
-        if (k > n) return 0;
-        double lbinom = lgamma(n+1) - lgamma(k+1) - lgamma(n-k+1);
-        double l1 = log(threshold);
-        double l2 = log(1 - threshold);
-        if (std::isinf(l1)) return k == 0;
-        if (std::isinf(l2)) return k == n;
-        return exp(lbinom + k * l1 + (n-k) * l2);
-    };
-
-    uint64_t n_thresholds = uint64_t(1) << threshold_size;
+    uint64_t n_thresholds = 1ul << threshold_size;
     std::vector<double> thresholds(n_thresholds);
     for (uint64_t i = 0; i < n_thresholds; i++) {
-        thresholds[i] = (double) i / (n_thresholds-1);
+        thresholds[i] = static_cast<double>(i) / (n_thresholds-1);
     }
 
-    uint64_t max_n = (uint64_t)(2 * k * lamda);
+    uint64_t max_n = static_cast<uint64_t>(2ul * k * lamda);
     std::vector<std::vector<double>> success_exp(max_n+1, std::vector<double>(k+1));
-
-    auto recomp = [&]() {
-        for (uint64_t n = 0; n <= max_n; n++) {
-            auto &v = success_exp[n];
-            for (uint64_t i = 0; i < v.size(); i++) {
-                double e = 0;
-                for (double t: thresholds) e += success_prob(t, n, i);
-                v[i] = e;
-            }
-        }
-    };
-
-    auto set_threshold = [&](uint64_t i, double value) {
-        double old = std::exchange(thresholds[i], value);
-        for (uint64_t n = 0; n <= max_n; n++) {
-            auto &v = success_exp[n];
-            for (uint64_t i = 0; i < v.size(); i++) {
-                v[i] += success_prob(value, n, i) - success_prob(old, n, i);
-            }
-        }
-    };
-
-    auto best_error = [&](uint64_t n) -> std::pair<double, double> {
-        uint64_t goal = std::min(n, k);
-        double need = TUNE;
-        need -= success_exp[n][goal];
-        if (need <= 0) return {0,0};
-        double avg = 0;
-        for (uint64_t error = 1; error <= goal; error++) {
-            double s = success_exp[n][goal-error];
-            if (s >= need) {
-                return {error - 1 + need/s, avg + error * need};
-            }
-            need -= s;
-            avg += error * s;
-        }
-        return {goal, std::numeric_limits<double>::infinity()};
-    };
-
-    auto eval = [&]() -> double {
-        if (!std::ranges::contains(thresholds, 0.0)) {
-            return std::numeric_limits<double>::infinity();
-        }
-        double exp = k * lamda;
-        double badness = 0;
-        for (uint64_t n = 0; n <= max_n; n++) {
-            badness += poisson(exp, n) * best_error(n).second;
-        }
-        return badness;
-    };
 
     double temp = 0.8;
     double cur_badness;
     while (temp > 0.01 / k) {
-        recomp();
-        cur_badness = eval();
+        recomp(max_n, thresholds, success_exp);
+        cur_badness = eval(max_n, k, lamda, thresholds, success_exp);
         for (uint64_t j = 0; j < n_thresholds; j++) {
             double b = thresholds[j];
             double a = std::max(b - temp, 0.0);
             double c = std::min(b + temp, 1.0);
-            set_threshold(j, a);
-            double a_badness = eval();
-            set_threshold(j, c);
-            double c_badness = eval();
+            set_threshold(max_n, j, a, thresholds, success_exp);
+            double a_badness = eval(max_n, k, lamda, thresholds, success_exp);
+            set_threshold(max_n, j, c, thresholds, success_exp);
+            double c_badness = eval(max_n, k, lamda, thresholds, success_exp);
             double best = std::min({cur_badness, a_badness, c_badness});
-            if (best == c_badness) ;
-            else if (best == a_badness) set_threshold(j, a);
-            else if (best == cur_badness) set_threshold(j, b);
+            if (best == c_badness) {
+            } else if (best == a_badness) {
+                set_threshold(max_n, j, a, thresholds, success_exp);
+            } else if (best == cur_badness) {
+                set_threshold(max_n, j, b, thresholds, success_exp);
+            }
             cur_badness = best;
         }
         temp *= 0.8;
     }
     std::ranges::sort(thresholds);
-    recomp();
-
-    auto double_to_u64 = [](double x) -> uint64_t {
-        return x == 1.0 ? uint64_t(-1) : uint64_t(ldexp(x, 64));
-    };
+    recomp(max_n, thresholds, success_exp);
 
     std::vector<uint64_t> thresholds_final(n_thresholds);
     for (uint64_t i = 0; i < n_thresholds; i++) {
@@ -134,7 +147,7 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
 
     std::vector<std::pair<uint64_t, uint64_t>> errors(max_n+1);
     for (uint64_t n = 0; n <= max_n; n++) {
-        double e = best_error(n).first;
+        double e = best_error(n, k, success_exp).first;
         uint64_t q = e;
         errors[n] = {q+1,double_to_u64(e-q)};
     }
@@ -176,7 +189,12 @@ struct SharedData {
         assert(overload > 1.0);
         assert(threshold_size >= 1);
         assert(k > 0);
+        auto begin = std::chrono::high_resolution_clock::now();
+        std::cout<<"Begin calculating thresholds"<<std::endl;
         std::tie(thresholds, errors) = compute_thresholds(k, overload, threshold_size);
+        std::cout<<"Complete calculating thresholds" << std::endl;
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
     }
 };
 
