@@ -40,10 +40,6 @@ inline double success_prob(double threshold, uint64_t n, uint64_t k) {
     }
 }
 
-inline uint64_t double_to_u64(double x) {
-    return x == 1.0 ? ~0ul : static_cast<uint64_t>(ldexp(x, 64));
-}
-
 void recomp(uint64_t max_n, const std::vector<double> &thresholds, std::vector<std::vector<double>> &success_exp) {
     for (uint64_t n = 0; n <= max_n; n++) {
         auto &v = success_exp[n];
@@ -89,14 +85,14 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> com
 
     std::vector<uint64_t> thresholds_final(n_thresholds);
     for (uint64_t i = 0; i < n_thresholds; i++) {
-        thresholds_final[i] = double_to_u64(thresholds[i]);
+        thresholds_final[i] = ThresholdBasedBumping::double_to_u64(thresholds[i]);
     }
 
     std::vector<std::pair<uint64_t, uint64_t>> errors(max_n+1);
     for (uint64_t n = 0; n <= max_n; n++) {
         double e = best_error(n, k, success_exp).first;
         uint64_t q = e;
-        errors[n] = {q+1,double_to_u64(e-q)};
+        errors[n] = {q+1, ThresholdBasedBumping::double_to_u64(e-q)};
     }
 
     return {thresholds_final, errors};

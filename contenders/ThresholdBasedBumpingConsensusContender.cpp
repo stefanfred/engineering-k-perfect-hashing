@@ -16,7 +16,7 @@ void dispatchOverloadsConsensus(size_t N) {
 }
 
 template <size_t k>
-struct ThresholdBasedBumpingContenderRunner {
+struct ThresholdBasedBumpingConsensusContenderRunner {
     void operator() (size_t N) const {
         constexpr size_t x = log2(2 * std::numbers::pi * k) / 2;
         dispatchOverloadsConsensus<k, x>(N);
@@ -26,5 +26,5 @@ struct ThresholdBasedBumpingContenderRunner {
 };
 
 void thresholdBasedBumpingConsensusContenderRunner(size_t N, size_t k) {
-    dispatchK<ThresholdBasedBumpingContenderRunner>(k, N);
+    dispatchK<ThresholdBasedBumpingConsensusContenderRunner>(k, N);
 }
