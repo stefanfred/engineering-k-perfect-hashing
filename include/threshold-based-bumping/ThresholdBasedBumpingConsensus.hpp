@@ -180,36 +180,23 @@ private:
         return (tidx ^ bytehamster::util::remix(key)) & ((1ul << threshold_size) - 1);
     }
 
-    struct Builder {
-        std::vector<Key> keys;
+    struct LayerBuilder {
+        std::vector<Key> &keys;
         std::ranges::subrange<std::vector<Key>::iterator> current;
         uint64_t cur_bucket, total_buckets, layer, offset;
-        std::vector<uint64_t> *spots;
-        std::vector<Hash128> *bumped;
+        std::vector<uint64_t> &emptySlots;
+        std::vector<Hash128> bumped;
 
         const std::vector<uint64_t> &thresholds;
         const std::vector<std::pair<uint64_t, uint64_t>> &errors;
 
-        Builder(const std::vector<uint64_t> &thresholds,
-            const std::vector<std::pair<uint64_t, uint64_t>> &errors,
-            std::vector<Hash128> &hashes, uint64_t layer, uint64_t buckets,
-            uint64_t offset, std::vector<uint64_t> *spots)
-                : keys(std::move(prepare(hashes, layer, buckets))),
-                  current(keys.begin(), keys.begin()),
+        LayerBuilder(const std::vector<uint64_t> &thresholds,
+                    const std::vector<std::pair<uint64_t, uint64_t>> &errors,
+                    std::vector<Key> &keys, uint64_t layer, uint64_t buckets,
+                    uint64_t offset, std::vector<uint64_t> &emptySlots)
+                : keys(keys), current(keys.begin(), keys.begin()),
                   cur_bucket(0), total_buckets(buckets), layer(layer), offset(offset),
-                  spots(spots), bumped(&hashes),
-                  thresholds(thresholds), errors(errors) {
-            bumped->clear();
-        }
-
-        static std::vector<Key> prepare(const std::vector<Hash128> &hashes, uint64_t seed, uint64_t n_buckets) {
-            auto r = std::views::transform(hashes, [seed, n_buckets](Hash128 key) {
-                uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + seed), n_buckets);
-                return Key { b, 0, key };
-            });
-            std::vector<Key> keys(r.begin(), r.end());
-            sort_buckets(keys);
-            return keys;
+                  emptySlots(emptySlots), thresholds(thresholds), errors(errors) {
         }
 
         std::optional<uint64_t> advance(uint64_t seed) {
@@ -246,11 +233,11 @@ private:
             current = std::ranges::subrange(it, current.begin());
 
             uint64_t cnt = 0;
-            while (!spots->empty() && spots->back() == offset + cur_bucket - 1) {
-                spots->pop_back();
+            while (!emptySlots.empty() && emptySlots.back() == offset + cur_bucket - 1) {
+                emptySlots.pop_back();
                 cnt++;
             }
-            bumped->resize(bumped->size() - (current.size() + cnt - k));
+            bumped.resize(bumped.size() - (current.size() + cnt - k));
 
             return threshold_size;
         }
@@ -288,10 +275,10 @@ private:
                 }
                 if (error < error_bound || bytehamster::util::remix(seed + tidx) < error_prob) {
                     for (Key & key: current | std::views::drop(idx)) {
-                        bumped->push_back(key.hash);
+                        bumped.push_back(key.hash);
                     }
                     for (uint64_t x = idx; x < k; x++) {
-                        spots->push_back(offset + cur_bucket - 1);
+                        emptySlots.push_back(offset + cur_bucket - 1);
                     }
                     return encrypt(seed, tidx);
                 }
@@ -307,12 +294,7 @@ private:
     explicit ThresholdBasedBumpingConsensus(std::vector<Hash128> &keys)
             : n(keys.size()), gaps({}, 0) {
         std::vector<std::pair<uint64_t, uint64_t>> errors;
-        auto begin = std::chrono::high_resolution_clock::now();
-        std::cout<<"Begin calculating thresholds"<<std::endl;
         std::tie(thresholds, errors) = compute_thresholds_and_error<k, overload, threshold_size>();
-        std::cout<<"Complete calculating thresholds" << std::endl;
-        auto end = std::chrono::high_resolution_clock::now();
-        std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
 
         double overload_bucket_size = k * overload;
         uint64_t total_buckets = (n + k - 1) / k;
@@ -322,7 +304,7 @@ private:
 #endif
 
         uint64_t offset = 0;
-        std::vector<uint64_t> spots;
+        std::vector<uint64_t> emptySlots;
         for (uint64_t i = 0; offset != total_buckets; i++) {
             uint64_t remaining = total_buckets - offset;
             uint64_t cur_buckets = std::ceil(keys.size() / overload_bucket_size);
@@ -332,10 +314,18 @@ private:
                 cur_buckets = remaining;
             }
 
-            Builder builder(thresholds, errors, keys, i, cur_buckets, offset, &spots);
-            Consensus consensus(builder);
+            std::vector<Key> hashedKeys;
+            hashedKeys.reserve(keys.size());
+            for (const Hash128 &key : keys) {
+                uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + i), cur_buckets);
+                hashedKeys.emplace_back(b, 0, key);
+            }
+            sort_buckets(hashedKeys);
 
+            LayerBuilder builder(thresholds, errors, hashedKeys, i, cur_buckets, offset, emptySlots);
+            Consensus consensus(builder);
             layers.emplace_back(cur_buckets, std::move(consensus));
+            keys = builder.bumped;
 
             offset += cur_buckets;
         }
@@ -358,7 +348,7 @@ private:
             }
             actual_spots[h] = 1;
         }
-        auto it = spots.begin();
+        auto it = emptySlots.begin();
         for (uint64_t &x : actual_spots) {
             uint64_t v = *it;
             if (x) {
