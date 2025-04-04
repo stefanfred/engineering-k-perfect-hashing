@@ -19,15 +19,13 @@
 #include <hash128.hpp>
 #include "common.hpp"
 #include "consensus.hpp"
+#include "optimalThresholds.hpp"
 
 namespace kphf::ThresholdBasedBumpingConsensus {
 
 constexpr double TUNE = 1.05;
 std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
-        compute_thresholds(uint64_t k, double lamda, int threshold_size) {
-    auto poisson = [](double lamda, uint64_t k) -> double {
-        return exp(k * log(lamda) - lamda - lgamma(k+1));
-    };
+        compute_thresholds_and_error(uint64_t k, double lamda, int threshold_size) {
 
     auto success_prob =
       [](double threshold, uint64_t n, uint64_t k) -> double {
@@ -42,9 +40,6 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
 
     uint64_t n_thresholds = uint64_t(1) << threshold_size;
     std::vector<double> thresholds(n_thresholds);
-    for (uint64_t i = 0; i < n_thresholds; i++) {
-        thresholds[i] = (double) i / (n_thresholds-1);
-    }
 
     uint64_t max_n = (uint64_t)(2 * k * lamda);
     std::vector<std::vector<double>> success_exp(max_n+1, std::vector<double>(k+1));
@@ -56,16 +51,6 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
                 double e = 0;
                 for (double t: thresholds) e += success_prob(t, n, i);
                 v[i] = e;
-            }
-        }
-    };
-
-    auto set_threshold = [&](uint64_t i, double value) {
-        double old = std::exchange(thresholds[i], value);
-        for (uint64_t n = 0; n <= max_n; n++) {
-            auto &v = success_exp[n];
-            for (uint64_t i = 0; i < v.size(); i++) {
-                v[i] += success_prob(value, n, i) - success_prob(old, n, i);
             }
         }
     };
@@ -87,40 +72,7 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>>
         return {goal, std::numeric_limits<double>::infinity()};
     };
 
-    auto eval = [&]() -> double {
-        if (!std::ranges::contains(thresholds, 0.0)) {
-            return std::numeric_limits<double>::infinity();
-        }
-        double exp = k * lamda;
-        double badness = 0;
-        for (uint64_t n = 0; n <= max_n; n++) {
-            badness += poisson(exp, n) * best_error(n).second;
-        }
-        return badness;
-    };
-
-    double temp = 0.8;
-    double cur_badness;
-    while (temp > 0.01 / k) {
-        recomp();
-        cur_badness = eval();
-        for (uint64_t j = 0; j < n_thresholds; j++) {
-            double b = thresholds[j];
-            double a = std::max(b - temp, 0.0);
-            double c = std::min(b + temp, 1.0);
-            set_threshold(j, a);
-            double a_badness = eval();
-            set_threshold(j, c);
-            double c_badness = eval();
-            double best = std::min({cur_badness, a_badness, c_badness});
-            if (best == c_badness) ;
-            else if (best == a_badness) set_threshold(j, a);
-            else if (best == cur_badness) set_threshold(j, b);
-            cur_badness = best;
-        }
-        temp *= 0.8;
-    }
-    std::ranges::sort(thresholds);
+    thresholds = compute_thresholds(k, lamda*k, n_thresholds);
     recomp();
 
     auto double_to_u64 = [](double x) -> uint64_t {
@@ -176,7 +128,7 @@ struct SharedData {
         assert(overload > 1.0);
         assert(threshold_size >= 1);
         assert(k > 0);
-        std::tie(thresholds, errors) = compute_thresholds(k, overload, threshold_size);
+        std::tie(thresholds, errors) = compute_thresholds_and_error(k, overload, threshold_size);
     }
 };
 
