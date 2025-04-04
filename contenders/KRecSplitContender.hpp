@@ -3,10 +3,10 @@
 #include <kRecSplit.hpp>
 #include "Contender.h"
 
-template <size_t k, size_t leafSize, sux::function::krecsplit::BumpStrategy bumpStrategy = sux::function::krecsplit::BumpStrategy::RANK_RECURSE>
+template <size_t k, size_t leafSize, kphf::RecSplit::BumpStrategy bumpStrategy = kphf::RecSplit::BumpStrategy::RANK_RECURSE>
 class KRecSplitContender : public Contender {
     public:
-    using kPHF = sux::function::krecsplit::RecSplit<k, leafSize, bumpStrategy>;
+    using kPHF = kphf::RecSplit::RecSplit<k, leafSize, bumpStrategy>;
     kPHF *kphf = nullptr;
     size_t bucketSize;
 

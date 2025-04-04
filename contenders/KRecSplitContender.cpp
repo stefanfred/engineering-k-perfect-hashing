@@ -5,7 +5,7 @@
 template <size_t k, size_t leafSize>
 void dispatchBucketSize(size_t N) {
     for (double bucketSizeFactor = 0.2; bucketSizeFactor < 1; bucketSizeFactor += 0.2) {
-        size_t bucketSize = bucketSizeFactor * sux::function::krecsplit::MAX_BUCKET_SIZE<k, leafSize>;
+        size_t bucketSize = bucketSizeFactor * kphf::RecSplit::MAX_BUCKET_SIZE<k, leafSize>;
         {KRecSplitContender<k, leafSize>(N, bucketSize).run();}
     }
 }

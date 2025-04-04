@@ -41,19 +41,21 @@
 #include <sux/bits/Rank9.hpp>
 #include <sux/bits/SimpleSelectHalf.hpp>
 #include <sux/function/DoubleEF.hpp>
-#include <sux/function/RiceBitVector.hpp>
 #include <sux/function/RecSplit.hpp>
+#include "RiceBitVector.hpp"
 
-namespace sux::function::krecsplit {
+namespace kphf::RecSplit {
 
 using namespace std;
-using namespace sux::function;
 using namespace std::chrono;
-using sux::function::RiceBitVector;
 using sux::function::DoubleEF;
 using sux::bits::Rank9;
 using sux::bits::SimpleSelectHalf;
 using sux::util::Vector;
+using sux::function::hash128_t;
+using sux::function::start_seed;
+using sux::function::spooky;
+using sux::function::remix;
 
 template<size_t K, size_t LEAF_SIZE>
 static constexpr bool is_small = (K <= 20 && LEAF_SIZE <= 2) || K < 10;
@@ -263,7 +265,9 @@ enum class BumpStrategy {
     SELECT_RECURSE,
 };
 
-template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT = util::AllocType::MALLOC> class RecSplit;
+template <size_t K, size_t LEAF_SIZE, BumpStrategy BS = BumpStrategy::INTERSPERSE_SPLIT_NOBITS,
+        util::AllocType AT = util::AllocType::MALLOC>
+class RecSplit;
 
 template<size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT>
 struct ExtraFields {
@@ -373,7 +377,8 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
  * @tparam LEAF_SIZE The number of output buckets of size k in each leaf.
  * @tparam AT a type of memory allocation out of sux::util::AllocType.
  */
-template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
+template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT>
+class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
     using SplitStrat = SplittingStrategy<K, LEAF_SIZE>;
 
     static constexpr size_t _k = K;
@@ -389,7 +394,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
     size_t bucket_size;
     size_t nbuckets;
     size_t keys_count;
-    RiceBitVector<AT> descriptors;
+    kphf::RecSplit::RiceBitVector<AT> descriptors;
     DoubleEF<AT> ef;
 
   public:
@@ -841,7 +846,7 @@ template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT> class
         }
 
         sort(hashes, hashes + keys_count, [this](const hash128_t &a, const hash128_t &b) { return hash128_to_bucket(a) < hash128_to_bucket(b); });
-        typename RiceBitVector<AT>::Builder builder;
+        typename kphf::RecSplit::RiceBitVector<AT>::Builder builder;
 
         bucket_size_acc[0] = bucket_pos_acc[0] = 0;
         vector<hash128_t> bumped_keys;
