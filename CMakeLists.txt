@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24...3.31)
+cmake_minimum_required(VERSION 3.24...4.0)
 project(kPerfectHashing)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -22,6 +22,7 @@ endif()
 add_library(KphfCommon INTERFACE)
 target_include_directories(KphfCommon INTERFACE include/common)
 target_include_directories(KphfCommon INTERFACE extlib/gcem/include)
+target_link_libraries(KphfCommon INTERFACE Sux)
 target_compile_features(KphfCommon INTERFACE cxx_std_23)
 
 if(NOT TARGET tlx)

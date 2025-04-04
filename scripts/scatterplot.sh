@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --array=0-5
+#SBATCH --array=0-17
 
 params="--numKeys 1M --numQueries 1M"
 jobsBase=(

@@ -13,10 +13,12 @@ void dispatchBucketSize(size_t N) {
 template <size_t k>
 struct KRecSplitContenderRunner {
     void operator() (size_t N) const {
-        // TODO: Constexpr lookup tables get compile time error for k=1000
+        dispatchBucketSize<k, 1>(N);
+        dispatchBucketSize<k, 2>(N);
         if constexpr (k <= 100) {
-            dispatchBucketSize<k, 2>(N);
             dispatchBucketSize<k, 4>(N);
+        }
+        if constexpr (k <= 50) {
             dispatchBucketSize<k, 6>(N);
         }
     }
