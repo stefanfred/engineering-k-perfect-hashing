@@ -6,7 +6,8 @@
 template <size_t k, size_t x, double overloadFrom, double overloadStep, int overloadStepCount>
 void dispatchOverload(size_t N) {
 	if constexpr (overloadFrom > 1.0) {
-		ThresholdBasedBumpingContender<k, overloadFrom, x>(N).run();
+		ThresholdBasedBumpingContender<k, overloadFrom, x, kphf::ThresholdBasedBumping::DummyFilter>(N).run();
+		ThresholdBasedBumpingContender<k, overloadFrom, x, kphf::ThresholdBasedBumping::RibbonFilter>(N).run();
 	}
 	if constexpr (overloadStepCount > 0) {
 		dispatchOverload<k, x, overloadFrom + overloadStep, overloadStep, overloadStepCount - 1>(N);

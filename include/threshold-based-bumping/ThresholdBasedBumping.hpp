@@ -85,7 +85,6 @@ public:
             return DummyFilter();
         }
 
-        static std::string name() { return "none"; }
     };
 
     bool bump(int level, Hash128 hash) const {
@@ -95,6 +94,10 @@ public:
 
     size_t count_bits() const {
         return sizeof(*this) * 8;
+    }
+
+    static std::string name() {
+        return "none";
     }
 };
 
@@ -128,7 +131,6 @@ public:
             return RibbonFilter(std::move(Ribbon(items)));
         }
 
-        static std::string name() { return "ribbon"; }
     };
 
     bool bump(int level, Hash128 h) const {
@@ -137,6 +139,10 @@ public:
 
     size_t count_bits() const {
         return ribbon.sizeBytes() * 8;
+    }
+
+    static std::string name() {
+        return "ribbon";
     }
 };
 
