@@ -187,11 +187,11 @@ private:
         std::vector<uint64_t> *spots;
         std::vector<Hash128> *bumped;
 
-        const std::span<uint64_t> &thresholds;
-        const std::span<std::pair<uint64_t, uint64_t>> errors; // TODO: Making this a reference causes construction to hang
+        const std::vector<uint64_t> &thresholds;
+        const std::vector<std::pair<uint64_t, uint64_t>> &errors;
 
-        Builder(const std::span<uint64_t> &thresholds,
-            const std::span<std::pair<uint64_t, uint64_t>> &errors,
+        Builder(const std::vector<uint64_t> &thresholds,
+            const std::vector<std::pair<uint64_t, uint64_t>> &errors,
             std::vector<Hash128> &hashes, uint64_t layer, uint64_t buckets,
             uint64_t offset, std::vector<uint64_t> *spots)
                 : keys(std::move(prepare(hashes, layer, buckets))),
@@ -202,8 +202,7 @@ private:
             bumped->clear();
         }
 
-        static std::vector<Key> prepare(const std::vector<Hash128> &hashes,
-          uint64_t seed, uint64_t n_buckets) {
+        static std::vector<Key> prepare(const std::vector<Hash128> &hashes, uint64_t seed, uint64_t n_buckets) {
             auto r = std::views::transform(hashes, [seed, n_buckets](Hash128 key) {
                 uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + seed), n_buckets);
                 return Key { b, 0, key };
