@@ -20,11 +20,9 @@
 #include "common.hpp"
 #include "consensus.hpp"
 
-namespace kphf::ThresholdBasedBumpingConsensus {
+#include "optimalThresholds.hpp"
 
-inline double poisson(double lamda, uint64_t k) {
-    return exp(k * log(lamda) - lamda - lgamma(k+1));
-}
+namespace kphf::ThresholdBasedBumpingConsensus {
 
 inline double success_prob(double threshold, uint64_t n, uint64_t k) {
     if (k > n) {
@@ -59,16 +57,6 @@ void recomp(uint64_t max_n, const std::vector<double> &thresholds, std::vector<s
     }
 }
 
-void set_threshold(uint64_t max_n, uint64_t i, double value, std::vector<double> &thresholds, std::vector<std::vector<double>> &success_exp) {
-    double old = std::exchange(thresholds[i], value);
-    for (uint64_t n = 0; n <= max_n; n++) {
-        auto &v = success_exp[n];
-        for (uint64_t i = 0; i < v.size(); i++) {
-            v[i] += success_prob(value, n, i) - success_prob(old, n, i);
-        }
-    }
-}
-
 std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<std::vector<double>> &success_exp) {
     uint64_t goal = std::min(n, k);
     constexpr double TUNE = 1.05;
@@ -89,54 +77,14 @@ std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<std
     return {goal, std::numeric_limits<double>::infinity()};
 }
 
-double eval(uint64_t max_n, size_t k, double lamda, const std::vector<double> &thresholds, const std::vector<std::vector<double>> &success_exp) {
-    if (!std::ranges::contains(thresholds, 0.0)) {
-        return std::numeric_limits<double>::infinity();
-    }
-    double exp = k * lamda;
-    double badness = 0;
-    for (uint64_t n = 0; n <= max_n; n++) {
-        badness += poisson(exp, n) * best_error(n, k, success_exp).second;
-    }
-    return badness;
-}
-
 template <uint64_t k, double lamda, int threshold_size>
-std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> compute_thresholds() {
+std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> compute_thresholds_and_error() {
     uint64_t n_thresholds = 1ul << threshold_size;
-    std::vector<double> thresholds(n_thresholds);
-    for (uint64_t i = 0; i < n_thresholds; i++) {
-        thresholds[i] = static_cast<double>(i) / (n_thresholds-1);
-    }
+    std::vector<double> thresholds = compute_thresholds(k, lamda*k, n_thresholds);
 
     uint64_t max_n = static_cast<uint64_t>(2ul * k * lamda);
     std::vector<std::vector<double>> success_exp(max_n+1, std::vector<double>(k+1));
 
-    double temp = 0.8;
-    double cur_badness;
-    while (temp > 0.01 / k) {
-        recomp(max_n, thresholds, success_exp);
-        cur_badness = eval(max_n, k, lamda, thresholds, success_exp);
-        for (uint64_t j = 0; j < n_thresholds; j++) {
-            double b = thresholds[j];
-            double a = std::max(b - temp, 0.0);
-            double c = std::min(b + temp, 1.0);
-            set_threshold(max_n, j, a, thresholds, success_exp);
-            double a_badness = eval(max_n, k, lamda, thresholds, success_exp);
-            set_threshold(max_n, j, c, thresholds, success_exp);
-            double c_badness = eval(max_n, k, lamda, thresholds, success_exp);
-            double best = std::min({cur_badness, a_badness, c_badness});
-            if (best == c_badness) {
-            } else if (best == a_badness) {
-                set_threshold(max_n, j, a, thresholds, success_exp);
-            } else if (best == cur_badness) {
-                set_threshold(max_n, j, b, thresholds, success_exp);
-            }
-            cur_badness = best;
-        }
-        temp *= 0.8;
-    }
-    std::ranges::sort(thresholds);
     recomp(max_n, thresholds, success_exp);
 
     std::vector<uint64_t> thresholds_final(n_thresholds);
@@ -362,7 +310,7 @@ private:
         std::vector<std::pair<uint64_t, uint64_t>> errors;
         auto begin = std::chrono::high_resolution_clock::now();
         std::cout<<"Begin calculating thresholds"<<std::endl;
-        std::tie(thresholds, errors) = compute_thresholds<k, overload, threshold_size>();
+        std::tie(thresholds, errors) = compute_thresholds_and_error<k, overload, threshold_size>();
         std::cout<<"Complete calculating thresholds" << std::endl;
         auto end = std::chrono::high_resolution_clock::now();
         std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " ms" << std::endl;
