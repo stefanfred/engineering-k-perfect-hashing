@@ -67,8 +67,7 @@ class Consensus {
 
 	}
 
-	std::pair<std::uint64_t, std::uint64_t>
-	  get(std::uint64_t off, std::uint64_t size) const {
+	std::pair<std::uint64_t, std::uint64_t> get(std::uint64_t off, std::uint64_t size) const {
 		unsigned __int128 v;
 		std::memcpy(&v, data.data() + off/8, 16);
 		v >>= off%8;

@@ -18,4 +18,8 @@ namespace kphf::ThresholdBasedBumping {
 		  [](const Key &key) -> uint64_t { return key.fingerprint; });
 	}
 
+	inline uint64_t double_to_u64(double x) {
+		return x == 1.0 ? ~0ul : static_cast<uint64_t>(ldexp(x, 64));
+	}
+
 }

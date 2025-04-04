@@ -24,24 +24,12 @@
 
 namespace kphf::ThresholdBasedBumping {
 
-uint64_t select_bucket(uint64_t z, uint64_t nbuckets) {
-    return ((unsigned __int128) z * nbuckets) >> 64;
-}
-
 template<uint64_t n_thresholds>
 std::array<uint64_t, n_thresholds> get_thresholds(uint64_t _k, double bucket_size) {
     auto res = compute_thresholds(_k,bucket_size,n_thresholds);
     std::array<uint64_t, n_thresholds> raw;
-    auto convert = [](double x) -> uint64_t {
-        x = std::round(std::ldexp(x, 64));
-        if (x >= std::ldexp(1, 64)) {
-            return std::numeric_limits<uint64_t>::max();
-        } else {
-            return uint64_t(x);
-        }
-    };
     for (size_t i = 0; i < n_thresholds; ++i) {
-        raw[i] = convert(res[i]);
+        raw[i] = double_to_u64(res[i]);
     }
     return raw;
 }
@@ -85,7 +73,6 @@ public:
             return DummyFilter();
         }
 
-        static std::string name() { return "none"; }
     };
 
     bool bump(int level, Hash128 hash) const {
@@ -95,6 +82,10 @@ public:
 
     size_t count_bits() const {
         return sizeof(*this) * 8;
+    }
+
+    static std::string name() {
+        return "none";
     }
 };
 
@@ -128,7 +119,6 @@ public:
             return RibbonFilter(std::move(Ribbon(items)));
         }
 
-        static std::string name() { return "ribbon"; }
     };
 
     bool bump(int level, Hash128 h) const {
@@ -137,6 +127,10 @@ public:
 
     size_t count_bits() const {
         return ribbon.sizeBytes() * 8;
+    }
+
+    static std::string name() {
+        return "ribbon";
     }
 };
 
@@ -186,7 +180,7 @@ public:
         for (uint64_t i = 0; i < nbuckets.size(); i++) {
             uint64_t cur_buckets = nbuckets[i];
             uint64_t h = bytehamster::util::remix(key.hi + i);
-            uint64_t b = offset + select_bucket(h, cur_buckets);
+            uint64_t b = offset + bytehamster::util::fastrange64(h, cur_buckets);
             uint64_t f = bytehamster::util::remix(key.lo + i);
             uint64_t tidx;
             if constexpr (threshold_size_halfbits & 1) {
@@ -243,7 +237,7 @@ public:
 
             auto r = std::views::transform(keys,
               [i, cur_buckets](Hash128 key) {
-                uint64_t b = select_bucket(bytehamster::util::remix(key.hi + i), cur_buckets);
+                uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + i), cur_buckets);
                 uint64_t f = bytehamster::util::remix(key.lo + i);
                 return Key { b, f, key };
             });
