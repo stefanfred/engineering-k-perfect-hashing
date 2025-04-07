@@ -134,16 +134,17 @@ private:
     using Key = kphf::ThresholdBasedBumping::Key;
 public:
 
-    uint64_t operator()(Hash128 key) const {
+    uint64_t operator()(const std::string &key) const {
+		Hash128 hash(key);
         uint64_t offset = 0;
         for (uint64_t i = 0; i < layers.size(); i++) {
             auto &[cur_buckets, consensus] = layers[i];
-            uint64_t h = bytehamster::util::remix(key.hi + i);
+            uint64_t h = bytehamster::util::remix(hash.hi + i);
             uint64_t b = bytehamster::util::fastrange64(h, cur_buckets);
             auto [seed,tidx] =
               consensus.get(b * threshold_size, threshold_size);
             tidx = decrypt(seed, tidx);
-            uint64_t f = bytehamster::util::remix(key.lo + seed + i);
+            uint64_t f = bytehamster::util::remix(hash.lo + seed + i);
 
             if (f < thresholds[tidx]) {
                 return offset + b;
@@ -152,7 +153,7 @@ public:
             offset += cur_buckets;
         }
 
-        return gaps.select(phf(key.hi ^ key.lo));
+        return gaps.select(phf(hash.hi ^ hash.lo));
     }
 
     size_t count_bits() const {
@@ -287,8 +288,11 @@ private:
     ThresholdBasedBumpingConsensus() : n(0), gaps({}, 0) {
     }
 
-    explicit ThresholdBasedBumpingConsensus(std::vector<Hash128> &keys)
+    explicit ThresholdBasedBumpingConsensus(const std::vector<std::string> &keys)
             : n(keys.size()), gaps({}, 0) {
+		std::vector<Hash128> hashed_keys(n);
+		for (size_t i = 0; i < n; i++) hashed_keys[i] = Hash128(keys[i]);
+
         std::vector<std::pair<uint64_t, uint64_t>> errors;
         std::tie(thresholds, errors) = compute_thresholds_and_error<k, overload, threshold_size>();
 
@@ -303,36 +307,36 @@ private:
         std::vector<uint64_t> emptySlots;
         for (uint64_t i = 0; offset != total_buckets; i++) {
             uint64_t remaining = total_buckets - offset;
-            uint64_t cur_buckets = std::ceil(keys.size() / overload_bucket_size);
+            uint64_t cur_buckets = std::ceil(hashed_keys.size() / overload_bucket_size);
             if (cur_buckets >= remaining) {
                 cur_buckets = remaining;
-            } else if ((double)(keys.size() - k * cur_buckets) / (remaining - cur_buckets) > overload_bucket_size) {
+            } else if ((double)(hashed_keys.size() - k * cur_buckets) / (remaining - cur_buckets) > overload_bucket_size) {
                 cur_buckets = remaining;
             }
 
-            std::vector<Key> hashedKeys;
-            hashedKeys.reserve(keys.size());
-            for (const Hash128 &key : keys) {
+            std::vector<Key> layer_keys;
+            layer_keys.reserve(keys.size());
+            for (const Hash128 &key : hashed_keys) {
                 uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + i), cur_buckets);
-                hashedKeys.emplace_back(b, 0, key);
+                layer_keys.emplace_back(b, 0, key);
             }
-            sort_buckets(hashedKeys);
+            sort_buckets(layer_keys);
 
-            LayerBuilder builder(thresholds, errors, hashedKeys, i, cur_buckets, offset, emptySlots);
+            LayerBuilder builder(thresholds, errors, layer_keys, i, cur_buckets, offset, emptySlots);
             Consensus consensus(builder);
             layers.emplace_back(cur_buckets, std::move(consensus));
-            keys = builder.bumped;
+            hashed_keys = builder.bumped;
 
             offset += cur_buckets;
         }
         layers.shrink_to_fit();
 
 #ifdef STATS
-        bumped_keys += keys.size();
+        bumped_keys += hashed_keys.size();
 #endif
 
         std::vector<uint64_t> fallbackKeys;
-        for (Hash128 key : keys) {
+        for (Hash128 key : hashed_keys) {
             fallbackKeys.push_back(key.hi ^ key.lo);
         }
         phf = fips::FiPS<>(fallbackKeys);
