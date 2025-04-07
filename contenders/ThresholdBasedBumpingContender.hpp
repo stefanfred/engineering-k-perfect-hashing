@@ -21,13 +21,7 @@ class ThresholdBasedBumpingContender : public Contender {
         }
 
         void construct(const std::vector<std::string> &keys) override {
-            // TODO: Directly take strings in constructor as well
-            std::vector<Hash128> keysHashed;
-            keysHashed.reserve(keys.size());
-            for (auto &key : keys) {
-                keysHashed.emplace_back(Hash128(key));
-            }
-            kphf = ThresholdBasedBumping(keysHashed);
+            kphf = ThresholdBasedBumping(keys);
         }
 
         size_t sizeBits() override {
@@ -36,14 +30,14 @@ class ThresholdBasedBumpingContender : public Contender {
 
         void performQueries(const std::span<std::string> keys) override {
             auto x = [&] (std::string &key) {
-                return kphf(Hash128(key));
+                return kphf(key);
             };
             doPerformQueries(keys, x);
         }
 
         void performTest(const std::span<std::string> keys) override {
             auto x = [&] (std::string &key) {
-                return kphf(Hash128(key));
+                return kphf(key);
             };
             doPerformTest(keys, x);
         }

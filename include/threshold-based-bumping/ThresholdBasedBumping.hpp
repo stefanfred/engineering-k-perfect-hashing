@@ -175,13 +175,14 @@ public:
         : ThresholdBasedBumping(build(keys, std::forward<F>(build_phf), std::move(filter))) {
     }
 
-    uint64_t operator()(Hash128 key) const {
+    uint64_t operator()(const std::string &key) const {
+		Hash128 hash(key);
         uint64_t offset = 0;
         for (uint64_t i = 0; i < nbuckets.size(); i++) {
             uint64_t cur_buckets = nbuckets[i];
-            uint64_t h = bytehamster::util::remix(key.hi + i);
+            uint64_t h = bytehamster::util::remix(hash.hi + i);
             uint64_t b = offset + bytehamster::util::fastrange64(h, cur_buckets);
-            uint64_t f = bytehamster::util::remix(key.lo + i);
+            uint64_t f = bytehamster::util::remix(hash.lo + i);
             uint64_t tidx;
             if constexpr (threshold_size_halfbits & 1) {
                 uint64_t off = (b/2) * threshold_size_halfbits;
@@ -199,13 +200,13 @@ public:
 
             if (tidx != 0 && f < avail_thresholds[tidx-1]) return b;
             if (tidx == n_thresholds || f < avail_thresholds[tidx]) {
-                if (!filter.bump(i, key)) return b;
+                if (!filter.bump(i, hash)) return b;
             }
 
             offset += cur_buckets;
         }
 
-        return gaps.select(phf(key.hi ^ key.lo));
+        return gaps.select(phf(hash.hi ^ hash.lo));
     }
 
     size_t count_bits() const {
@@ -218,8 +219,11 @@ public:
         ;
     }
 
-    ThresholdBasedBumping(std::vector<Hash128> keys)
+    ThresholdBasedBumping(const std::vector<std::string> &keys)
             : n(keys.size()), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
+		std::vector<Hash128> hashed_keys(n);
+		for (size_t i = 0; i < n; i++) hashed_keys[i] = Hash128(keys[i]);
+
         typename Filter::Builder filter;
         uint64_t total_buckets = (n + _k - 1) / _k;
         thresholds.resize(((total_buckets+1)/2 * threshold_size_halfbits + 7) / 8 + 7);
@@ -232,17 +236,17 @@ public:
         uint64_t offset = 0;
         std::vector<uint64_t> spots;
         for (uint64_t i = 0; offset != total_buckets; i++) {
-            uint64_t cur_buckets = std::min(total_buckets - offset, uint64_t(std::ceil(keys.size() / overload_bucket_size)));
+            uint64_t cur_buckets = std::min(total_buckets - offset, uint64_t(std::ceil(hashed_keys.size() / overload_bucket_size)));
             nbuckets.push_back(cur_buckets);
 
-            auto r = std::views::transform(keys,
+            auto r = std::views::transform(hashed_keys,
               [i, cur_buckets](Hash128 key) {
                 uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + i), cur_buckets);
                 uint64_t f = bytehamster::util::remix(key.lo + i);
                 return Key { b, f, key };
             });
             std::vector<Key> sorted_keys(r.begin(), r.end());
-            keys.clear();
+            hashed_keys.clear();
 
             sort_buckets(sorted_keys);
             auto next = sorted_keys.begin();
@@ -282,7 +286,7 @@ public:
                     tidx--;
                     in_bucket = bound - bucket.begin();
                     for (Key &k: std::ranges::subrange(bound, bucket.end())) {
-                        keys.push_back(k.hash);
+                        hashed_keys.push_back(k.hash);
                     }
                 } else {
                     auto upper = bound;
@@ -298,9 +302,9 @@ public:
 #ifdef STATS
                     extra_bumped += (uint64_t) (bump.size() - need_bump);
 #endif
-                    keys.insert(keys.end(), bump.begin(), bump.end());
+                    hashed_keys.insert(hashed_keys.end(), bump.begin(), bump.end());
                     for (Key &k: std::ranges::subrange(upper, bucket.end())) {
-                        keys.push_back(k.hash);
+                        hashed_keys.push_back(k.hash);
                     }
                     in_bucket = (upper - bucket.begin()) - bump.size();
                 }
@@ -333,11 +337,11 @@ public:
         nbuckets.shrink_to_fit();
 
 #ifdef STATS
-        bumped_keys += keys.size();
+        bumped_keys += hashed_keys.size();
 #endif
 
         std::vector<uint64_t> fallbackKeys;
-        for (Hash128 key : keys) {
+        for (Hash128 key : hashed_keys) {
             fallbackKeys.push_back(key.hi ^ key.lo);
         }
         phf = fips::FiPS<>(fallbackKeys);
