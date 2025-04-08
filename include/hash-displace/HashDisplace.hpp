@@ -83,12 +83,12 @@ class HashDisplace {
                 return;
             }
 
-            auto r = std::views::transform(items,
-                   [&](const std::string &item) -> std::pair<uint64_t, uint64_t> {
-                       Hash128 hash(item);
-                       return {bucketFunction(hash.hi), hash.lo};
-                   });
-            std::vector<std::pair<uint64_t, uint64_t>> sorted_items(r.begin(), r.end());
+            std::vector<std::pair<uint64_t, uint64_t>> sorted_items;
+            sorted_items.reserve(items.size());
+            for (const std::string & key : items) {
+                Hash128 hash(key);
+                sorted_items.emplace_back(bucketFunction(hash.hi), hash.lo);
+            }
             ips2ra::sort(sorted_items.begin(), sorted_items.end(),
                 [](const std::pair<uint64_t, uint64_t> &key) { return key.first; });
 

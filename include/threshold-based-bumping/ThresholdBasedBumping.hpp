@@ -221,8 +221,11 @@ public:
 
     ThresholdBasedBumping(const std::vector<std::string> &keys)
             : n(keys.size()), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
-		std::vector<Hash128> hashed_keys(n);
-		for (size_t i = 0; i < n; i++) hashed_keys[i] = Hash128(keys[i]);
+        std::vector<Hash128> hashed_keys;
+        hashed_keys.reserve(n);
+        for (size_t i = 0; i < n; i++) {
+            hashed_keys.emplace_back(keys[i]);
+        }
 
         typename Filter::Builder filter;
         uint64_t total_buckets = (n + _k - 1) / _k;

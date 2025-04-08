@@ -295,8 +295,11 @@ private:
 
     explicit ThresholdBasedBumpingConsensus(const std::vector<std::string> &keys)
             : n(keys.size()), gaps({}, 0) {
-		std::vector<Hash128> hashed_keys(n);
-		for (size_t i = 0; i < n; i++) hashed_keys[i] = Hash128(keys[i]);
+        std::vector<Hash128> hashed_keys;
+        hashed_keys.reserve(n);
+        for (size_t i = 0; i < n; i++) {
+            hashed_keys.emplace_back(keys[i]);
+        }
 
         std::vector<std::pair<uint64_t, uint64_t>> errors;
         std::tie(thresholds, errors) = compute_thresholds_and_error<k, overload, threshold_size>();
