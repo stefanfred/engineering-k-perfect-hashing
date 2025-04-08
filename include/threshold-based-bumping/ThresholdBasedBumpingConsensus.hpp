@@ -296,8 +296,8 @@ private:
             : ThresholdBasedBumpingConsensus(std::move(hashKeys(keys, overload)), overload) {
     }
 
-    std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
-        uint64_t total_buckets = (n + k - 1) / k;
+    static std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
+        uint64_t total_buckets = (keys.size() + k - 1) / k;
         double overload_bucket_size = k * overload;
         uint64_t cur_buckets = std::ceil(keys.size() / overload_bucket_size);
         if (cur_buckets >= total_buckets) {

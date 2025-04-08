@@ -222,7 +222,7 @@ public:
         : ThresholdBasedBumping(std::move(hashKeys(keys, overload)), overload) {
     }
 
-    std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
+    static std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
         double overload_bucket_size = _k * overload;
         uint64_t total_buckets = (keys.size() + _k - 1) / _k;
         uint64_t cur_buckets = std::min(total_buckets, uint64_t(std::ceil(keys.size() / overload_bucket_size)));
