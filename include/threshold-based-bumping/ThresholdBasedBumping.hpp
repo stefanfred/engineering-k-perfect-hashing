@@ -234,14 +234,23 @@ public:
         return Key(b, f, key);
     }
 
-    ThresholdBasedBumping(const std::vector<std::string> &keys)
-            : n(keys.size()), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
-        std::vector<Hash128> hashed_keys;
-        hashed_keys.reserve(n);
-        for (size_t i = 0; i < n; i++) {
-            hashed_keys.emplace_back(keys[i]);
-        }
+    explicit ThresholdBasedBumping(const std::vector<std::string> &keys)
+        : ThresholdBasedBumping(std::move(hashKeys(keys))) {
+    }
 
+    std::vector<Key> hashKeys(const std::vector<std::string> &keys) {
+        uint64_t total_buckets = (keys.size() + _k - 1) / _k;
+        uint64_t cur_buckets = std::min(total_buckets, uint64_t(std::ceil(keys.size() / overload_bucket_size)));
+        std::vector<Key> hashed_keys;
+        hashed_keys.reserve(keys.size());
+        for (const auto &key : keys) {
+            hashed_keys.emplace_back(calculateBucketAndFingerprint(Hash128(key), 0, cur_buckets));
+        }
+        return hashed_keys;
+    }
+
+    explicit ThresholdBasedBumping(std::vector<Key> keys)
+            : n(keys.size()), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
         typename Filter::Builder filter;
         uint64_t total_buckets = (n + _k - 1) / _k;
         thresholds.resize(((total_buckets+1)/2 * threshold_size_halfbits + 7) / 8 + 7);
@@ -253,22 +262,26 @@ public:
 
         uint64_t offset = 0;
         std::vector<uint64_t> spots;
-        for (uint64_t i = 0; offset != total_buckets; i++) {
-            uint64_t cur_buckets = std::min(total_buckets - offset, uint64_t(std::ceil(hashed_keys.size() / overload_bucket_size)));
+        std::vector<Hash128> bumped;
+        for (uint64_t layer = 0; offset != total_buckets; layer++) {
+            size_t nThisLayer = layer == 0 ? keys.size() : bumped.size();
+            uint64_t cur_buckets = std::min(total_buckets - offset, uint64_t(std::ceil(nThisLayer / overload_bucket_size)));
             nbuckets.push_back(cur_buckets);
 
-            std::vector<Key> layer_keys;
-            layer_keys.reserve(hashed_keys.size());
-            for (const Hash128 &key : hashed_keys) {
-                layer_keys.push_back(calculateBucketAndFingerprint(key, i, cur_buckets));
+            if (layer > 0) {
+                keys.clear();
+                keys.reserve(bumped.size());
+                for (const Hash128 &key : bumped) {
+                    keys.push_back(calculateBucketAndFingerprint(key, layer, cur_buckets));
+                }
+                bumped.clear();
             }
-            hashed_keys.clear();
 
-            sort_buckets(layer_keys);
-            auto next = layer_keys.begin();
+            sort_buckets(keys);
+            auto next = keys.begin();
             for (uint64_t j = 0; j < cur_buckets; j++) {
                 auto start = next;
-                while (next != layer_keys.end() && next->bucket == j) ++next;
+                while (next != keys.end() && next->bucket == j) ++next;
                 auto bucket = std::ranges::subrange(start, next);
                 sort_fingerprints(bucket);
                 uint64_t tidx;
@@ -302,7 +315,7 @@ public:
                     tidx--;
                     in_bucket = bound - bucket.begin();
                     for (Key &k: std::ranges::subrange(bound, bucket.end())) {
-                        hashed_keys.push_back(k.hash);
+                        bumped.push_back(k.hash);
                     }
                 } else {
                     auto upper = bound;
@@ -313,14 +326,14 @@ public:
                         ++upper;
                     }
                     size_t need_bump = upper - perfect;
-                    filter.add(i, bump, need_bump);
+                    filter.add(layer, bump, need_bump);
                     assert(bump.size() >= need_bump);
 #ifdef STATS
                     extra_bumped += (uint64_t) (bump.size() - need_bump);
 #endif
-                    hashed_keys.insert(hashed_keys.end(), bump.begin(), bump.end());
+                    bumped.insert(bumped.end(), bump.begin(), bump.end());
                     for (Key &k: std::ranges::subrange(upper, bucket.end())) {
-                        hashed_keys.push_back(k.hash);
+                        bumped.push_back(k.hash);
                     }
                     in_bucket = (upper - bucket.begin()) - bump.size();
                 }
@@ -353,11 +366,11 @@ public:
         nbuckets.shrink_to_fit();
 
 #ifdef STATS
-        bumped_keys += hashed_keys.size();
+        bumped_keys += bumped.size();
 #endif
 
         std::vector<uint64_t> fallbackKeys;
-        for (Hash128 key : hashed_keys) {
+        for (Hash128 key : bumped) {
             fallbackKeys.push_back(key.hi ^ key.lo);
         }
         phf = fips::FiPS<>(fallbackKeys);
