@@ -135,14 +135,15 @@ private:
 public:
 
     uint64_t operator()(const std::string &key) const {
-		Hash128 hash(key);
+        return operator()(Hash128(key));
+    }
+
+    uint64_t operator()(const Hash128 hash) const {
         uint64_t offset = 0;
         for (uint64_t i = 0; i < layers.size(); i++) {
             auto &[cur_buckets, consensus] = layers[i];
-            uint64_t h = bytehamster::util::remix(hash.hi + i);
-            uint64_t b = bytehamster::util::fastrange64(h, cur_buckets);
-            auto [seed,tidx] =
-              consensus.get(b * threshold_size, threshold_size);
+            uint64_t b = calculateBucket(hash, i, cur_buckets);
+            auto [seed, tidx] = consensus.get(b * threshold_size, threshold_size);
             tidx = decrypt(seed, tidx);
             uint64_t f = bytehamster::util::remix(hash.lo + seed + i);
 
@@ -169,6 +170,10 @@ public:
     }
 
 private:
+    static inline size_t calculateBucket(Hash128 key, size_t layer, size_t cur_buckets) {
+        return bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + layer), cur_buckets);
+    }
+
     static inline uint64_t encrypt(uint64_t key, uint64_t tidx) {
         return (tidx ^ bytehamster::util::remix(key)) & ((1ul << threshold_size) - 1);
     }
@@ -315,10 +320,9 @@ private:
             }
 
             std::vector<Key> layer_keys;
-            layer_keys.reserve(keys.size());
+            layer_keys.reserve(hashed_keys.size());
             for (const Hash128 &key : hashed_keys) {
-                uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + i), cur_buckets);
-                layer_keys.emplace_back(b, 0, key);
+                layer_keys.emplace_back(calculateBucket(key, i, cur_buckets), 0, key);
             }
             sort_buckets(layer_keys);
 
