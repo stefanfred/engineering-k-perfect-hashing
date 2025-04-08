@@ -93,17 +93,24 @@ private:
         n_buckets = std::ceil(keys.size() / bucket_size);
 
         ips2ra::sort(keys.begin(), keys.end(),[](const Hash128 &key) -> uint64_t { return key.hi; });
-        std::vector<uint64_t> bucket_sizes(n_buckets);
-        for (uint64_t i = 0; i < keys.size(); i++) {
-            bucket_sizes[keys[i].hi]++;
-        }
 
         std::vector<uint64_t> threshold(n_bins+1);
         threshold.front() = 0;
         for (size_t i = 1; i < n_bins; i++) {
             uint64_t b = keys[k*i].hi;
-            if (keys[k*i-1].hi != b && bucket_sizes[b-1] < bucket_sizes[b]) {
-                b--;
+            uint64_t previousB = keys[k*i-1].hi;
+            if (previousB != b) {
+                size_t previousBucketSize = 0;
+                while (k*i-1 >= previousBucketSize && keys[k*i-1 - previousBucketSize].hi == previousB) {
+                    previousBucketSize++;
+                }
+                size_t nextBucketSize = 0;
+                while (k*i + nextBucketSize < keys.size() && keys[k*i + nextBucketSize].hi == b) {
+                    nextBucketSize++;
+                }
+                if (previousBucketSize < nextBucketSize) {
+                    b--;
+                }
             }
             threshold[i] = b + 1;
         }
