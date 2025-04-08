@@ -520,7 +520,11 @@ class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
             const int part = uint16_t(hmod) / leaf_keys;
             m = min(leaf_keys, m - part * leaf_keys);
             cum_bins += _leaf_size * part;
-            if (part) reader.skipSubtree(part, skip_bits(leaf_keys) * part);
+            if (m < _k && LEAF_SIZE == 1) {
+                // If we are the very last leaf, do not skip. Otherwise we skip the INTERSPERSE_SPLIT_NOBITS seed
+            } else {
+                if (part) reader.skipSubtree(part, skip_bits(leaf_keys) * part);
+            }
             level++;
         }
 
