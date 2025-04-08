@@ -3,23 +3,16 @@
 #include <gcem.hpp>
 #include "DispatchK.h"
 
-template <size_t k, size_t x, double overloadFrom, double overloadStep, int overloadStepCount>
-void dispatchOverload(size_t N) {
-	if constexpr (overloadFrom > 1.0) {
-		ThresholdBasedBumpingContender<k, overloadFrom, x, kphf::ThresholdBasedBumping::DummyFilter>(N).run();
-		ThresholdBasedBumpingContender<k, overloadFrom, x, kphf::ThresholdBasedBumping::RibbonFilter>(N).run();
-	}
-	if constexpr (overloadStepCount > 0) {
-		dispatchOverload<k, x, overloadFrom + overloadStep, overloadStep, overloadStepCount - 1>(N);
-	}
-}
-
-
 template <size_t k, size_t xFrom, size_t xTo>
 void dispatchX(size_t N) {
     if constexpr (xFrom <= xTo) {
-		constexpr double overload = 6/(gcem::sqrt(k) + gcem::log2(k));
-		dispatchOverload<k, xFrom, 1 + overload * 0.95, overload * 0.025, 4>(N);
+		constexpr double targetOverload = 6/(gcem::sqrt(k) + gcem::log2(k));
+        for (size_t i = 0; i < 4; i++) {
+        	// TODO: Is "1+" really correct here? Consensus variant doesn't have it.
+        	double overload = 1 + targetOverload * 0.95 + i * targetOverload * 0.025;
+			ThresholdBasedBumpingContender<k, xFrom, kphf::ThresholdBasedBumping::DummyFilter>(N, overload).run();
+			ThresholdBasedBumpingContender<k, xFrom, kphf::ThresholdBasedBumping::RibbonFilter>(N, overload).run();
+        }
     }
     if constexpr (xFrom <= xTo) {
         dispatchX<k, xFrom + 1, xTo>(N);

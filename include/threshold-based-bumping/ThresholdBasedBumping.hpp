@@ -26,7 +26,7 @@ namespace kphf::ThresholdBasedBumping {
 
 template<uint64_t n_thresholds>
 std::array<uint64_t, n_thresholds> get_thresholds(uint64_t _k, double bucket_size) {
-    auto res = compute_thresholds(_k,bucket_size,n_thresholds);
+    auto res = compute_thresholds(_k, bucket_size, n_thresholds);
     std::array<uint64_t, n_thresholds> raw;
     for (size_t i = 0; i < n_thresholds; ++i) {
         raw[i] = double_to_u64(res[i]);
@@ -134,22 +134,17 @@ public:
     }
 };
 
-template<uint64_t K, double OVERLOAD, int THRESHOLD_SIZE_HALFBITS, typename Filter = RibbonFilter>
+template<uint64_t K, int THRESHOLD_SIZE_HALFBITS, typename Filter = RibbonFilter>
 class ThresholdBasedBumping {
-    static_assert(OVERLOAD > 1.0);
     static_assert(THRESHOLD_SIZE_HALFBITS >= 2);
     static_assert(K > 0);
-
 private:
     static constexpr uint64_t _k = K;
-    static constexpr double overload = OVERLOAD;
     static constexpr uint64_t threshold_size_halfbits = THRESHOLD_SIZE_HALFBITS;
-    static constexpr uint64_t n_regions =
-      uint64_t(sqrt(uint64_t(1) << threshold_size_halfbits));
+    static constexpr uint64_t n_regions = uint64_t(sqrt(uint64_t(1) << threshold_size_halfbits));
     static constexpr uint64_t n_thresholds = n_regions - 1;
-    static constexpr double overload_bucket_size = _k * overload;
 
-    std::array<uint64_t, n_thresholds> avail_thresholds = get_thresholds<n_thresholds>(_k, overload_bucket_size);
+    std::array<uint64_t, n_thresholds> avail_thresholds;
 
     uint64_t n;
     std::vector<uint64_t> nbuckets;
@@ -158,23 +153,7 @@ private:
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
 
-    ThresholdBasedBumping(uint64_t n, std::vector<uint64_t> &&nbuckets, std::vector<uint8_t> &&thresholds,
-        Filter &&filter, fips::FiPS<> &&phf, sux::bits::EliasFano<> &&gaps)
-            : n(n), nbuckets(std::move(nbuckets)),
-              thresholds(std::move(thresholds)), filter(std::move(filter)),
-              phf(std::move(phf)), gaps(std::move(gaps)) {
-    }
-
 public:
-    ThresholdBasedBumping()
-        : n(0), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
-    }
-
-    template<typename F>
-    ThresholdBasedBumping(const std::vector<Hash128> &keys, F &&build_phf, Filter::Builder filter = {})
-        : ThresholdBasedBumping(build(keys, std::forward<F>(build_phf), std::move(filter))) {
-    }
-
     uint64_t operator()(const std::string &key) const {
         return operator()(Hash128(key));
     }
@@ -220,6 +199,7 @@ public:
 
     size_t count_bits() const {
         return sizeof(*this) * 8
+            - sizeof(avail_thresholds) * 8 // Lookup table independent of keys, could actually be static constexpr
             + nbuckets.capacity() * 64
             + thresholds.capacity() * 8
             + filter.count_bits() - sizeof(filter) * 8
@@ -234,11 +214,16 @@ public:
         return Key(b, f, key);
     }
 
-    explicit ThresholdBasedBumping(const std::vector<std::string> &keys)
-        : ThresholdBasedBumping(std::move(hashKeys(keys))) {
+    ThresholdBasedBumping()
+        : avail_thresholds(), n(0), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
     }
 
-    std::vector<Key> hashKeys(const std::vector<std::string> &keys) {
+    explicit ThresholdBasedBumping(const std::vector<std::string> &keys, double overload)
+        : ThresholdBasedBumping(std::move(hashKeys(keys, overload)), overload) {
+    }
+
+    std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
+        double overload_bucket_size = _k * overload;
         uint64_t total_buckets = (keys.size() + _k - 1) / _k;
         uint64_t cur_buckets = std::min(total_buckets, uint64_t(std::ceil(keys.size() / overload_bucket_size)));
         std::vector<Key> hashed_keys;
@@ -249,9 +234,12 @@ public:
         return hashed_keys;
     }
 
-    explicit ThresholdBasedBumping(std::vector<Key> keys)
-            : n(keys.size()), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
+    explicit ThresholdBasedBumping(std::vector<Key> keys, double overload)
+            : avail_thresholds(get_thresholds<n_thresholds>(_k, _k * overload)),
+              n(keys.size()), filter(typename Filter::Builder().build()),
+              gaps(std::vector<uint64_t>(), 0) {
         typename Filter::Builder filter;
+        double overload_bucket_size = _k * overload;
         uint64_t total_buckets = (n + _k - 1) / _k;
         thresholds.resize(((total_buckets+1)/2 * threshold_size_halfbits + 7) / 8 + 7);
         thresholds.shrink_to_fit();

@@ -73,8 +73,8 @@ std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<std
     return {goal, std::numeric_limits<double>::infinity()};
 }
 
-template <uint64_t k, double lamda, int threshold_size>
-std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> compute_thresholds_and_error() {
+template <uint64_t k, int threshold_size>
+std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> compute_thresholds_and_error(double lamda) {
     uint64_t n_thresholds = 1ul << threshold_size;
     std::vector<double> thresholds = compute_thresholds(k, lamda*k, n_thresholds);
 
@@ -120,10 +120,9 @@ void dump_stats() {
 }
 #endif
 
-template <uint64_t k, double overload, int threshold_size>
+template <uint64_t k, int threshold_size>
 class ThresholdBasedBumpingConsensus {
 private:
-    static_assert(overload > 1.0);
     static_assert(threshold_size >= 1);
     static_assert(k > 0);
     uint64_t n;
@@ -293,11 +292,11 @@ private:
     ThresholdBasedBumpingConsensus() : n(0), gaps({}, 0) {
     }
 
-    explicit ThresholdBasedBumpingConsensus(const std::vector<std::string> &keys)
-            : ThresholdBasedBumpingConsensus(std::move(hashKeys(keys))) {
+    explicit ThresholdBasedBumpingConsensus(const std::vector<std::string> &keys, double overload)
+            : ThresholdBasedBumpingConsensus(std::move(hashKeys(keys, overload)), overload) {
     }
 
-    std::vector<Key> hashKeys(const std::vector<std::string> &keys) {
+    std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
         uint64_t total_buckets = (n + k - 1) / k;
         double overload_bucket_size = k * overload;
         uint64_t cur_buckets = std::ceil(keys.size() / overload_bucket_size);
@@ -316,10 +315,10 @@ private:
         return hashed_keys;
     }
 
-    explicit ThresholdBasedBumpingConsensus(std::vector<Key> keys)
+    explicit ThresholdBasedBumpingConsensus(std::vector<Key> keys, double overload)
             : n(keys.size()), gaps({}, 0) {
         std::vector<std::pair<uint64_t, uint64_t>> errors;
-        std::tie(thresholds, errors) = compute_thresholds_and_error<k, overload, threshold_size>();
+        std::tie(thresholds, errors) = compute_thresholds_and_error<k, threshold_size>(overload);
 
         double overload_bucket_size = k * overload;
         uint64_t total_buckets = (n + k - 1) / k;

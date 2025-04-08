@@ -3,16 +3,16 @@
 
 template <size_t k, size_t threshold_size>
 void dispatchOverloadsConsensus(size_t N) {
-    {ThresholdBasedBumpingConsensusContender<k, 1.05, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.10, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.20, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.30, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.40, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.50, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.60, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 1.80, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 2.00, threshold_size>(N).run();}
-    {ThresholdBasedBumpingConsensusContender<k, 2.20, threshold_size>(N).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.05).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.10).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.20).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.30).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.40).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.50).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.60).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 1.80).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 2.00).run();}
+    {ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, 2.20).run();}
 }
 
 template <size_t k>
