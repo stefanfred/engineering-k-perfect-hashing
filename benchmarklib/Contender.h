@@ -16,6 +16,7 @@ class Contender {
         static size_t numQueries;
         static size_t numThreads;
         static size_t numQueryThreads;
+        static size_t seed;
         static bool skipTests;
 
         const size_t N;
@@ -44,9 +45,13 @@ class Contender {
         virtual void performTest(const std::span<std::string> keys) = 0;
 
         void run(bool shouldPrintResult = true) {
+            if (seed == 0) {
+                auto time = std::chrono::system_clock::now();
+                seed = std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count();
+            }
             std::cout << std::endl;
-            std::cout << "Contender: " << name().substr(0, name().find(' ')) << std::endl;
-            std::vector<std::string> keys = generateInputData(N);
+            std::cout << "Contender: " << name().substr(0, name().find(' ')) << ", seed " << seed << std::endl;
+            std::vector<std::string> keys = generateInputData(N, seed);
             beforeConstruction(keys);
 
             std::cout << "Cooldown" << std::endl;
@@ -163,4 +168,5 @@ class Contender {
 size_t Contender::numQueries = 1e6;
 size_t Contender::numThreads = 1;
 size_t Contender::numQueryThreads = 1;
+size_t Contender::seed = 0;
 bool Contender::skipTests = false;

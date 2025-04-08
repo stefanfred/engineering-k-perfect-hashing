@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
     cmd.add_bytes('q', "numQueries", Contender::numQueries, "Number of queries to perform");
     cmd.add_bytes('t', "numThreads", Contender::numThreads, "Number of threads to run benchmarks with");
     cmd.add_flag('T', "skipTests", Contender::skipTests, "Skip testing PHF for validity");
+    cmd.add_bytes('s', "seed", Contender::seed, "Seed for random inputs");
     cmd.add_bytes('k', "k", k, "Number of collisions per output value");
 
     cmd.add_flag("chd", chd, "Execute CHD benchmark");
