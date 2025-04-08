@@ -176,31 +176,40 @@ public:
     }
 
     uint64_t operator()(const std::string &key) const {
-		Hash128 hash(key);
+        return operator()(Hash128(key));
+    }
+
+    uint64_t operator()(const Hash128 hash) const {
         uint64_t offset = 0;
         for (uint64_t i = 0; i < nbuckets.size(); i++) {
             uint64_t cur_buckets = nbuckets[i];
-            uint64_t h = bytehamster::util::remix(hash.hi + i);
-            uint64_t b = offset + bytehamster::util::fastrange64(h, cur_buckets);
-            uint64_t f = bytehamster::util::remix(hash.lo + i);
+            Key key = calculateBucketAndFingerprint(hash, i, cur_buckets);
+            key.bucket += offset;
             uint64_t tidx;
             if constexpr (threshold_size_halfbits & 1) {
-                uint64_t off = (b/2) * threshold_size_halfbits;
+                uint64_t off = (key.bucket/2) * threshold_size_halfbits;
                 memcpy(&tidx, thresholds.data() + off/8, 8);
                 tidx >>= off%8;
                 tidx &= (uint64_t(1) << threshold_size_halfbits) - 1;
-                if (b%2 == 0) tidx %= n_regions;
-                else tidx /= n_regions;
+                if (key.bucket%2 == 0) {
+                    tidx %= n_regions;
+                } else {
+                    tidx /= n_regions;
+                }
             } else {
-                uint64_t off = b * (threshold_size_halfbits/2);
+                uint64_t off = key.bucket * (threshold_size_halfbits/2);
                 memcpy(&tidx, thresholds.data() + off/8, 8);
                 tidx >>= off%8;
                 tidx &= (uint64_t(1) << (threshold_size_halfbits/2)) - 1;
             }
 
-            if (tidx != 0 && f < avail_thresholds[tidx-1]) return b;
-            if (tidx == n_thresholds || f < avail_thresholds[tidx]) {
-                if (!filter.bump(i, hash)) return b;
+            if (tidx != 0 && key.fingerprint < avail_thresholds[tidx-1]) {
+                return key.bucket;
+            }
+            if (tidx == n_thresholds || key.fingerprint < avail_thresholds[tidx]) {
+                if (!filter.bump(i, hash)) {
+                    return key.bucket;
+                }
             }
 
             offset += cur_buckets;
@@ -217,6 +226,12 @@ public:
             + phf.getBits() - sizeof(phf) * 8
             + gaps.bitCount() - sizeof(gaps) * 8
         ;
+    }
+
+    static inline Key calculateBucketAndFingerprint(Hash128 key, size_t layer, size_t cur_buckets) {
+        uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + layer), cur_buckets);
+        uint64_t f = bytehamster::util::remix(key.lo + layer);
+        return Key(b, f, key);
     }
 
     ThresholdBasedBumping(const std::vector<std::string> &keys)
@@ -242,20 +257,18 @@ public:
             uint64_t cur_buckets = std::min(total_buckets - offset, uint64_t(std::ceil(hashed_keys.size() / overload_bucket_size)));
             nbuckets.push_back(cur_buckets);
 
-            auto r = std::views::transform(hashed_keys,
-              [i, cur_buckets](Hash128 key) {
-                uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + i), cur_buckets);
-                uint64_t f = bytehamster::util::remix(key.lo + i);
-                return Key { b, f, key };
-            });
-            std::vector<Key> sorted_keys(r.begin(), r.end());
+            std::vector<Key> layer_keys;
+            layer_keys.reserve(hashed_keys.size());
+            for (const Hash128 &key : hashed_keys) {
+                layer_keys.push_back(calculateBucketAndFingerprint(key, i, cur_buckets));
+            }
             hashed_keys.clear();
 
-            sort_buckets(sorted_keys);
-            auto next = sorted_keys.begin();
+            sort_buckets(layer_keys);
+            auto next = layer_keys.begin();
             for (uint64_t j = 0; j < cur_buckets; j++) {
                 auto start = next;
-                while (next != sorted_keys.end() && next->bucket == j) ++next;
+                while (next != layer_keys.end() && next->bucket == j) ++next;
                 auto bucket = std::ranges::subrange(start, next);
                 sort_fingerprints(bucket);
                 uint64_t tidx;
