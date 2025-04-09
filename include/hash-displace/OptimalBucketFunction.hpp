@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include <cmath>
 #include <utility>
 #include <vector>
@@ -8,45 +7,68 @@
 
 namespace kphf::HashDisplace {
 namespace optimal_bucket_function {
-double poission_pmf(int i, double lambda) {
-    return exp(i * log(lambda) - lambda - lgamma(i + 1.0));
-}
 
-double expected_truncated(int maxEx, double lambda, bool weighted) {
-    double exp = 0.0;
-    for (int i = 0; i < maxEx; ++i) {
-        exp += poission_pmf(i, lambda) * (weighted ? i : 1.0);
+template <size_t MAX>
+constexpr std::array<double, MAX> build_lgamma_lookup() {
+    std::array<double, MAX> lgamma_lookup;
+    for (size_t i = 0; i < MAX; ++i) {
+        lgamma_lookup[i] = gcem::lgamma(i);
     }
-    return exp;
+    return lgamma_lookup;
 }
 
-std::pair<double, double> alphaAndRelSize(int k, double lambda) {
-    double alphaNotFull = expected_truncated(k, lambda, true) / k;
-    double prob = expected_truncated(k, lambda, false);
+template <size_t MAX>
+std::array<double, MAX> lgamma_lookup = build_lgamma_lookup<MAX>();
+
+template <size_t MAX_I>
+double poission_pmf(int i, double lambda, double loglambda) {
+    return std::exp(i * loglambda - lambda - lgamma_lookup<MAX_I + 1>[i + 1]);
+}
+
+template <size_t maxEx>
+std::pair<double, double> expected_truncated(double lambda) {
+    const double loglambda = log(lambda);
+    double expWeighted = 0.0;
+    double expUnweighted = 0.0;
+    for (int i = 0; i < maxEx; ++i) {
+        double pmf = poission_pmf<maxEx>(i, lambda, loglambda);
+        expWeighted += pmf * i;
+        expUnweighted += pmf;
+    }
+    return std::make_pair(expWeighted, expUnweighted);
+}
+
+template <size_t k>
+std::pair<double, double> alphaAndRelSize(double lambda) {
+    auto [expWeighted, expUnweighted] = expected_truncated<k>(lambda);
+    double alphaNotFull = expWeighted / k;
+    double prob = expUnweighted;
     return {1.0 - prob + alphaNotFull, -log(prob)};
 }
 
-void buildRec(std::vector<std::pair<double, double> > &samples, double deltaX, double llamb, double rlamb, int k) {
-    std::pair<double, double> left = alphaAndRelSize(k, llamb);
-    std::pair<double, double> right = alphaAndRelSize(k, rlamb);
+template <size_t k>
+void buildRec(std::vector<std::pair<double, double> > &samples, double deltaX, double llamb, double rlamb) {
+    std::pair<double, double> left = alphaAndRelSize<k>(llamb);
+    std::pair<double, double> right = alphaAndRelSize<k>(rlamb);
 
     if (right.first - left.first < deltaX)
         return;
     double midPoint = (rlamb + llamb) / 2.0;
-    std::pair<double, double> midSample = alphaAndRelSize(k, midPoint);
-    buildRec(samples, deltaX, llamb, midPoint, k);
+    std::pair<double, double> midSample = alphaAndRelSize<k>(midPoint);
+    buildRec<k>(samples, deltaX, llamb, midPoint);
     if (std::isnormal(midSample.second)) {
         samples.push_back(midSample);
-        buildRec(samples, deltaX, midPoint, rlamb, k);
+        buildRec<k>(samples, deltaX, midPoint, rlamb);
     }
 }
 
-std::vector<uint64_t> getBucketFunctionFulcrums(int k, int fulcs) {
+template <size_t k>
+std::vector<uint64_t> getBucketFunctionFulcrums(int fulcs) {
     std::vector<std::pair<double, double> > samples;
     double leftLimit = k * 0.0001;
     double rightLimit = k * 10;
 
-    buildRec(samples, 0.1 / fulcs, leftLimit, rightLimit, k);
+    buildRec<k>(samples, 0.1 / fulcs, leftLimit, rightLimit);
 
     std::vector<std::pair<double, double> > integral;
     std::pair<double, double> lastPair = {0, 0};
@@ -89,7 +111,7 @@ template <size_t k>
 class OptimalBucketFunction {
     private:
         // TODO: Make static constexpr when compiling got faster
-        std::vector<uint64_t> fulcrums = optimal_bucket_function::getBucketFunctionFulcrums(k, 1000);
+        std::vector<uint64_t> fulcrums = optimal_bucket_function::getBucketFunctionFulcrums<k>(1000);
         uint64_t lf64;
         uint64_t nbuckets;
     public:
