@@ -3,11 +3,7 @@
 #include <random>
 #include <iostream>
 #include <chrono>
-#include <bytehamster/util/XorShift64.h>
-#include <unistd.h>
-#include <thread>
 #include <span>
-#include "BenchmarkData.h"
 
 #define DO_NOT_OPTIMIZE(value) asm volatile ("" : : "r,m"(value) : "memory")
 
@@ -41,97 +37,12 @@ class Contender {
             (void) keys;
         }
 
-        virtual void performQueries(const std::span<std::string> keys) = 0;
-        virtual void performTest(const std::span<std::string> keys) = 0;
+        virtual void performQueries(std::span<std::string> keys) = 0;
+        virtual void performTest(std::span<std::string> keys) = 0;
 
-        void run(bool shouldPrintResult = true) {
-            if (seed == 0) {
-                auto time = std::chrono::system_clock::now();
-                seed = std::chrono::duration_cast<std::chrono::milliseconds>(time.time_since_epoch()).count();
-            }
-            std::cout << std::endl;
-            std::cout << "Contender: " << name().substr(0, name().find(' ')) << ", seed " << seed << std::endl;
-            std::vector<std::string> keys = generateInputData(N, seed);
-            beforeConstruction(keys);
+        void run(bool shouldPrintResult = true);
 
-            std::cout << "Cooldown" << std::endl;
-            usleep(1000*1000);
-            std::cout << "Constructing" << std::endl;
-
-            std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-            try {
-                construct(keys);
-            } catch (const std::exception& e) {
-                std::cout<<"Error: "<<e.what()<<std::endl;
-                return;
-            }
-            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            constructionTimeMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-
-            if (!skipTests) {
-                std::cout<<"Testing"<<std::endl;
-                performTest(keys);
-            }
-
-            queryTimeMilliseconds = 0;
-            if (numQueries > 0) {
-                std::cout<<"Preparing query plan"<<std::endl;
-                std::vector<std::string> queryPlan;
-                queryPlan.reserve(numQueries * numQueryThreads);
-                bytehamster::util::XorShift64 prng(time(nullptr));
-                for (size_t i = 0; i < numQueries * numQueryThreads; i++) {
-                    queryPlan.push_back(keys[prng(N)]);
-                }
-                std::cout << "Cooldown" << std::endl;
-                usleep(1000*1000);
-                std::cout<<"Querying"<<std::endl;
-                if (numQueryThreads == 1) {
-                    begin = std::chrono::steady_clock::now();
-                    performQueries(queryPlan);
-                    end = std::chrono::steady_clock::now();
-                    queryTimeMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-                } else {
-                    std::vector<std::thread> threads;
-                    begin = std::chrono::steady_clock::now();
-                    for (size_t i = 0; i < numQueryThreads; i++) {
-                        std::span<std::string> querySpan(queryPlan.begin() + i * numQueries,
-                                                         queryPlan.begin() + (i + 1) * numQueries);
-                        threads.emplace_back([&querySpan, this] {
-                            performQueries(querySpan);
-                        });
-                    }
-                    for (size_t i = 0; i < numQueryThreads; i++) {
-                        threads.at(i).join();
-                    }
-                    end = std::chrono::steady_clock::now();
-                    queryTimeMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-                }
-            }
-            if (shouldPrintResult) {
-                printResult();
-            }
-        }
-
-        void printResult(std::string additional = "") {
-            // Some competitors print stuff when determining their space consumption
-            double bitsPerElement = (double) sizeBits() / N;
-            std::cout << "RESULT"
-                      << " name=" << name()
-                      << " k=" << k_contender
-                      << " bitsPerElement=" << bitsPerElement
-                      << " constructionTimeMilliseconds=" << (constructionTimeMicroseconds < 10000
-                                            ? std::to_string(0.001 * constructionTimeMicroseconds)
-                                            : std::to_string(constructionTimeMicroseconds / 1000))
-                      << " queryTimeMilliseconds=" << queryTimeMilliseconds
-                      << " numQueries=" << numQueries
-                      << " numQueriesTotal=" << (numQueries * numQueryThreads)
-                      << " N=" << N
-                      << " loadFactor=" << loadFactor
-                      << " threads=" << numThreads
-                      << " queryThreads=" << numQueryThreads
-                      << additional
-                      << std::endl;
-        }
+        void printResult(std::string additional = "");
 
     protected:
         template<typename F>
@@ -164,9 +75,3 @@ class Contender {
             }
         }
 };
-
-size_t Contender::numQueries = 1e6;
-size_t Contender::numThreads = 1;
-size_t Contender::numQueryThreads = 1;
-size_t Contender::seed = 0;
-bool Contender::skipTests = false;

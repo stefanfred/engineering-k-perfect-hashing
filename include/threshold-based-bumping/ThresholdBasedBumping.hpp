@@ -219,7 +219,7 @@ public:
     }
 
     explicit ThresholdBasedBumping(const std::vector<std::string> &keys, double overload)
-        : ThresholdBasedBumping(std::move(hashKeys(keys, overload)), overload) {
+        : ThresholdBasedBumping(hashKeys(keys, overload), overload) {
     }
 
     static std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {

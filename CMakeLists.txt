@@ -57,9 +57,12 @@ add_library(Kphf::ThresholdBasedBumping ALIAS KphfThresholdBasedBumping)
 
 #################### Benchmarks ####################
 if(PROJECT_IS_TOP_LEVEL)
+    add_library(Contender SHARED benchmarklib/Contender.cpp)
+    target_link_libraries(Contender PUBLIC ByteHamster::Util)
+    target_include_directories(Contender PUBLIC benchmarklib)
+
     add_library(PerfectHashingCompetitors INTERFACE)
     target_include_directories(PerfectHashingCompetitors INTERFACE contenders)
-    target_include_directories(PerfectHashingCompetitors INTERFACE benchmarklib)
     target_link_libraries(PerfectHashingCompetitors INTERFACE ByteHamster::Util)
     target_link_libraries(PerfectHashingCompetitors INTERFACE Kphf::PaCHash Kphf::RecSplit Kphf::HashDisplace Kphf::ThresholdBasedBumping)
 
@@ -80,7 +83,7 @@ if(PROJECT_IS_TOP_LEVEL)
             continue()
         endif()
         add_library(${name} SHARED ${filename})
-        target_link_libraries(${name} PRIVATE PerfectHashingCompetitors)
+        target_link_libraries(${name} PUBLIC PerfectHashingCompetitors Contender)
         target_link_libraries(PerfectHashingCompetitorParetoRunners INTERFACE ${name})
     endforeach()
 

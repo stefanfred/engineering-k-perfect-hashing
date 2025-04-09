@@ -293,7 +293,7 @@ private:
     }
 
     explicit ThresholdBasedBumpingConsensus(const std::vector<std::string> &keys, double overload)
-            : ThresholdBasedBumpingConsensus(std::move(hashKeys(keys, overload)), overload) {
+            : ThresholdBasedBumpingConsensus(hashKeys(keys, overload), overload) {
     }
 
     static std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
