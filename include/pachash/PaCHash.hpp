@@ -99,7 +99,9 @@ private:
         for (size_t i = 1; i < n_bins; i++) {
             uint64_t b = keys[k*i].hi;
             uint64_t previousB = keys[k*i-1].hi;
-            if (previousB != b) {
+            if (previousB < b - 1) { // Empty bin in between
+                b--;
+            } else if (previousB == b - 1) { // Store the smaller one
                 size_t previousBucketSize = 0;
                 while (k*i-1 >= previousBucketSize && keys[k*i-1 - previousBucketSize].hi == previousB) {
                     previousBucketSize++;

@@ -134,14 +134,14 @@ public:
     }
 };
 
-template<uint64_t K, int THRESHOLD_SIZE_HALFBITS, typename Filter = RibbonFilter>
+template<uint64_t K, int THRESHOLD_SIZE, typename Filter = RibbonFilter>
 class ThresholdBasedBumping {
-    static_assert(THRESHOLD_SIZE_HALFBITS >= 2);
+    static_assert(THRESHOLD_SIZE >= 1);
     static_assert(K > 0);
 private:
     static constexpr uint64_t _k = K;
-    static constexpr uint64_t threshold_size_halfbits = THRESHOLD_SIZE_HALFBITS;
-    static constexpr uint64_t n_regions = uint64_t(sqrt(uint64_t(1) << threshold_size_halfbits));
+    static constexpr uint64_t threshold_size = THRESHOLD_SIZE;
+    static constexpr uint64_t n_regions = uint64_t(uint64_t(1) << threshold_size);
     static constexpr uint64_t n_thresholds = n_regions - 1;
 
     std::array<uint64_t, n_thresholds> avail_thresholds;
@@ -165,22 +165,10 @@ public:
             Key key = calculateBucketAndFingerprint(hash, i, cur_buckets);
             key.bucket += offset;
             uint64_t tidx;
-            if constexpr (threshold_size_halfbits & 1) {
-                uint64_t off = (key.bucket/2) * threshold_size_halfbits;
-                memcpy(&tidx, thresholds.data() + off/8, 8);
-                tidx >>= off%8;
-                tidx &= (uint64_t(1) << threshold_size_halfbits) - 1;
-                if (key.bucket%2 == 0) {
-                    tidx %= n_regions;
-                } else {
-                    tidx /= n_regions;
-                }
-            } else {
-                uint64_t off = key.bucket * (threshold_size_halfbits/2);
-                memcpy(&tidx, thresholds.data() + off/8, 8);
-                tidx >>= off%8;
-                tidx &= (uint64_t(1) << (threshold_size_halfbits/2)) - 1;
-            }
+			uint64_t off = key.bucket * threshold_size;
+			memcpy(&tidx, thresholds.data() + off/8, 8);
+			tidx >>= off%8;
+			tidx &= (uint64_t(1) << threshold_size) - 1;
 
             if (tidx != 0 && key.fingerprint < avail_thresholds[tidx-1]) {
                 return key.bucket;
@@ -219,7 +207,7 @@ public:
     }
 
     explicit ThresholdBasedBumping(const std::vector<std::string> &keys, double overload)
-        : ThresholdBasedBumping(std::move(hashKeys(keys, overload)), overload) {
+        : ThresholdBasedBumping(hashKeys(keys, overload), overload) {
     }
 
     static std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
@@ -241,7 +229,7 @@ public:
         typename Filter::Builder filter;
         double overload_bucket_size = _k * overload;
         uint64_t total_buckets = (n + _k - 1) / _k;
-        thresholds.resize(((total_buckets+1)/2 * threshold_size_halfbits + 7) / 8 + 7);
+        thresholds.resize((total_buckets * threshold_size + 7) / 8 + 7);
         thresholds.shrink_to_fit();
 
 #ifdef STATS
@@ -331,19 +319,11 @@ public:
 #endif
 
                 uint64_t b = offset + j;
-                if constexpr (threshold_size_halfbits&1) {
-                    uint64_t off = (b/2) * threshold_size_halfbits;
-                    uint64_t word;
-                    memcpy(&word, thresholds.data() + off/8, 8);
-                    word += (b%2 == 0 ? tidx : tidx * n_regions) << off%8;
-                    memcpy(thresholds.data() + off/8, &word, 8);
-                } else {
-                    uint64_t off = b * (threshold_size_halfbits/2);
-                    uint64_t word;
-                    memcpy(&word, thresholds.data() + off/8, 8);
-                    word |= tidx << off%8;
-                    memcpy(thresholds.data() + off/8, &word, 8);
-                }
+				uint64_t off = b * threshold_size;
+				uint64_t word;
+				memcpy(&word, thresholds.data() + off/8, 8);
+				word |= tidx << off%8;
+				memcpy(thresholds.data() + off/8, &word, 8);
 
                 for (uint64_t c = 0; c < _k - in_bucket; c++) {
                     spots.push_back(offset + j);
