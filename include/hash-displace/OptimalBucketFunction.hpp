@@ -41,7 +41,8 @@ void buildRec(std::vector<std::pair<double, double> > &samples, double deltaX, d
     }
 }
 
-std::vector<uint64_t> getBucketFunctionFulcrums(int k, int fulcs) {
+template<size_t fulcs>
+std::array<uint64_t, fulcs> getBucketFunctionFulcrums(int k) {
     std::vector<std::pair<double, double> > samples;
     double leftLimit = k * 0.0001;
     double rightLimit = k * 10;
@@ -60,22 +61,23 @@ std::vector<uint64_t> getBucketFunctionFulcrums(int k, int fulcs) {
         pair.second /= lastPair.second;
     }
 
-    std::vector<uint64_t> fulcrums;
+    std::array<uint64_t, fulcs> fulcrums;
     int index = 0;
-    fulcrums.push_back(0);
+    fulcrums[0]=0;
     for (int i = 1; i < fulcs - 1; ++i) {
         double x = i / (double) (fulcs - 1);
         while (integral[index].first < x) {
             index++;
         }
-        fulcrums.push_back(integral[index].second * uint64_t(-1));
+        fulcrums[i]=integral[index].second * uint64_t(-1);
     }
-    fulcrums.push_back(uint64_t(-1));
+    fulcrums[fulcs-1]=uint64_t(-1);
 
     return fulcrums;
 }
 
-inline uint64_t queryFulcrums(const std::vector<uint64_t> &fulcs, uint64_t hash, uint64_t bucketCount) {
+template <size_t fulcs_n>
+inline uint64_t queryFulcrums(const std::array<uint64_t, fulcs_n> &fulcs, uint64_t hash, uint64_t bucketCount) {
     __uint128_t z = hash * __uint128_t(fulcs.size() - 1);
     uint64_t index = z >> 64;
     uint64_t part = z;
@@ -85,11 +87,11 @@ inline uint64_t queryFulcrums(const std::vector<uint64_t> &fulcs, uint64_t hash,
 }
 }
 
-template <size_t k>
+template <size_t k, size_t fulcs_n = 1024>
 class OptimalBucketFunction {
     private:
         // TODO: Make static constexpr when compiling got faster
-        std::vector<uint64_t> fulcrums = optimal_bucket_function::getBucketFunctionFulcrums(k, 1000);
+        std::array<uint64_t, fulcs_n> fulcrums = optimal_bucket_function::getBucketFunctionFulcrums<fulcs_n>(k);
         uint64_t lf64;
         uint64_t nbuckets;
     public:
@@ -102,7 +104,7 @@ class OptimalBucketFunction {
                 assert(lf64 > 0);
 
                 auto is_ok = [&](uint64_t nb) -> bool {
-                    return optimal_bucket_function::queryFulcrums(fulcrums, lf64 - 1, nb) < nbuckets;
+                    return optimal_bucket_function::queryFulcrums<fulcs_n>(fulcrums, lf64 - 1, nb) < nbuckets;
                 };
                 uint64_t l = nbuckets, r;
                 while (is_ok(r = 2 * l)) l = r;
