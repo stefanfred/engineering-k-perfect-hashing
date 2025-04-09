@@ -4,9 +4,7 @@
 #include <limits>
 #include <cstdint>
 #include <cassert>
-#include <iostream>
 #include <cmath>
-#include <iomanip>
 #include <algorithm>
 #include <unordered_map>
 #include <ranges>
@@ -24,36 +22,43 @@
 
 namespace kphf::ThresholdBasedBumpingConsensus {
 
-inline double success_prob(double threshold, uint64_t n, uint64_t k) {
-    if (k > n) {
-        return 0;
+inline void recomp(uint64_t max_n, const std::vector<double> &thresholds_in, std::vector<std::vector<double>> &success_exp) {
+    struct ThresholdInfo {
+        double threshold;
+        double l1;
+        double l2;
+    };
+    std::vector<ThresholdInfo> thresholds;
+    for (double t : thresholds_in) {
+        thresholds.emplace_back(t, log(t), log(1 - t));
     }
-    double lbinom = lgamma(n+1) - lgamma(k+1) - lgamma(n-k+1);
-    double l1 = log(threshold);
-    double l2 = log(1 - threshold);
-    if (std::isinf(l1)) {
-        return k == 0;
-    } else if (std::isinf(l2)) {
-        return k == n;
-    } else {
-        return exp(lbinom + k * l1 + (n-k) * l2);
+    std::vector<double> lgamma_cache(std::max(max_n, success_exp.at(0).size()) + 2);
+    for (size_t i = 0; i < lgamma_cache.size(); i++) {
+        lgamma_cache[i] = lgamma(i);
     }
-}
-
-void recomp(uint64_t max_n, const std::vector<double> &thresholds, std::vector<std::vector<double>> &success_exp) {
     for (uint64_t n = 0; n <= max_n; n++) {
-        auto &v = success_exp[n];
-        for (uint64_t i = 0; i < v.size(); i++) {
+        double lgamma_n = lgamma_cache[n + 1];
+        for (uint64_t k = 0; k < success_exp[n].size(); k++) {
+            double lbinom = lgamma_n - lgamma_cache[k + 1] - lgamma_cache[n - k + 1];
             double e = 0;
-            for (double t : thresholds) {
-                e += success_prob(t, n, i);
+            for (const auto &[threshold, l1, l2] : thresholds) {
+                if (k > n) {
+                    continue;
+                }
+                if (std::isinf(l1)) {
+                    e += (k == 0);
+                } else if (std::isinf(l2)) {
+                    e += (k == n);
+                } else {
+                    e += exp(lbinom + k * l1 + (n - k) * l2);
+                }
             }
-            v[i] = e;
+            success_exp[n][k] = e;
         }
     }
 }
 
-std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<std::vector<double>> &success_exp) {
+inline std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<std::vector<double>> &success_exp) {
     uint64_t goal = std::min(n, k);
     constexpr double TUNE = 1.05;
     double need = TUNE;
