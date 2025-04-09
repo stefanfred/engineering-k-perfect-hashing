@@ -90,4 +90,7 @@ if(PROJECT_IS_TOP_LEVEL)
     add_executable(Comparison src/comparison.cpp)
     target_link_libraries(Comparison PRIVATE tlx ByteHamster::Util PerfectHashingCompetitors PerfectHashingCompetitorParetoRunners)
     target_compile_features(Comparison PRIVATE cxx_std_23)
+
+    add_executable(PrintThresholds src/printThresholds.cpp)
+    target_compile_features(PrintThresholds PRIVATE cxx_std_23)
 endif()
