@@ -30,7 +30,7 @@ std::pair<double, double> expected_truncated(double lambda) {
     const double loglambda = log(lambda);
     double expWeighted = 0.0;
     double expUnweighted = 0.0;
-    for (int i = 0; i < maxEx; ++i) {
+    for (size_t i = 0; i < maxEx; ++i) {
         double pmf = poission_pmf<maxEx>(i, lambda, loglambda);
         expWeighted += pmf * i;
         expUnweighted += pmf;
@@ -85,14 +85,14 @@ std::array<uint64_t, fulcs> getBucketFunctionFulcrums() {
     std::array<uint64_t, fulcs> fulcrums;
     int index = 0;
     fulcrums[0]=0;
-    for (int i = 1; i < fulcs - 1; ++i) {
+    for (size_t i = 1; i < fulcs - 1; ++i) {
         double x = i / (double) (fulcs - 1);
         while (integral[index].first < x) {
             index++;
         }
-        fulcrums[i]=integral[index].second * uint64_t(-1);
+        fulcrums[i] = integral[index].second * ~0ul;
     }
-    fulcrums[fulcs-1]=uint64_t(-1);
+    fulcrums[fulcs-1] = ~0ul;
 
     return fulcrums;
 }
@@ -140,7 +140,7 @@ class OptimalBucketFunction {
 
         uint64_t operator()(uint64_t hash) const {
             if (lf64 != 0) {
-                hash = ((unsigned __int128) hash * lf64) >> 64;
+                hash = bytehamster::util::fastrange64(hash, lf64);
             }
             return optimal_bucket_function::queryFulcrums(fulcrums, hash, nbuckets);
         }
