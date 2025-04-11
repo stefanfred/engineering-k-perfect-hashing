@@ -1,5 +1,7 @@
 #include "ThresholdBasedBumpingConsensusContender.hpp"
-#include "DispatchK.h"
+
+#include <tlx/math/integer_log2.hpp>
+#include <DispatchK.h>
 
 template <size_t k, size_t threshold_size>
 void dispatchOverloadsConsensus(size_t N) {
@@ -18,10 +20,15 @@ void dispatchOverloadsConsensus(size_t N) {
 template <size_t k>
 struct ThresholdBasedBumpingConsensusContenderRunner {
     void operator() (size_t N) const {
-        constexpr size_t x = log2(2 * std::numbers::pi * k) / 2;
-        dispatchOverloadsConsensus<k, x>(N);
-        dispatchOverloadsConsensus<k, x + 1>(N);
-        dispatchOverloadsConsensus<k, x + 2>(N);
+        constexpr size_t firstSize = tlx::integer_log2_ceil(k) >= 5 ? tlx::integer_log2_ceil(k) - 4 : 1;
+        dispatchOverloadsConsensus<k, firstSize>(N);
+        dispatchOverloadsConsensus<k, firstSize + 1>(N);
+        dispatchOverloadsConsensus<k, firstSize + 2>(N);
+        dispatchOverloadsConsensus<k, firstSize + 3>(N);
+        dispatchOverloadsConsensus<k, firstSize + 4>(N);
+        dispatchOverloadsConsensus<k, firstSize + 5>(N);
+        dispatchOverloadsConsensus<k, firstSize + 6>(N);
+        dispatchOverloadsConsensus<k, firstSize + 7>(N);
     }
 };
 

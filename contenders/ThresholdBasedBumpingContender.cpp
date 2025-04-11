@@ -1,30 +1,40 @@
 #include "ThresholdBasedBumpingContender.hpp"
 
-#include <gcem.hpp>
+#include <tlx/math/integer_log2.hpp>
 #include "DispatchK.h"
 
-template <size_t k, size_t xFrom, size_t xTo>
-void dispatchX(size_t N) {
-    if constexpr (xFrom <= xTo) {
-		constexpr double targetOverload = 6/(gcem::sqrt(k) + gcem::log2(k));
-        for (size_t i = 0; i < 4; i++) {
-        	// TODO: Is "1+" really correct here? Consensus variant doesn't have it.
-        	double overload = 1 + targetOverload * 0.95 + i * targetOverload * 0.025;
-			ThresholdBasedBumpingContender<k, xFrom, kphf::ThresholdBasedBumping::DummyFilter>(N, overload).run();
-			ThresholdBasedBumpingContender<k, xFrom, kphf::ThresholdBasedBumping::RibbonFilter>(N, overload).run();
-        }
-    }
-    if constexpr (xFrom <= xTo) {
-        dispatchX<k, xFrom + 1, xTo>(N);
-    }
+template <size_t k, size_t thresholdSize>
+void dispatchFilter(size_t N, double overload) {
+    ThresholdBasedBumpingContender<k, thresholdSize, kphf::ThresholdBasedBumping::DummyFilter>(N, overload).run();
+    ThresholdBasedBumpingContender<k, thresholdSize, kphf::ThresholdBasedBumping::RibbonFilter>(N, overload).run();
+}
+
+template <size_t k, size_t thresholdSize>
+void dispatchOverloads(size_t N) {
+    dispatchFilter<k, thresholdSize>(N, 1.05);
+    dispatchFilter<k, thresholdSize>(N, 1.10);
+    dispatchFilter<k, thresholdSize>(N, 1.20);
+    dispatchFilter<k, thresholdSize>(N, 1.30);
+    dispatchFilter<k, thresholdSize>(N, 1.40);
+    dispatchFilter<k, thresholdSize>(N, 1.50);
+    dispatchFilter<k, thresholdSize>(N, 1.60);
+    dispatchFilter<k, thresholdSize>(N, 1.80);
+    dispatchFilter<k, thresholdSize>(N, 2.00);
+    dispatchFilter<k, thresholdSize>(N, 2.20);
 }
 
 template <size_t k>
 struct ThresholdBasedBumpingContenderRunner {
     void operator() (size_t N) const {
-        // TODO: Where does this come from?
-        constexpr size_t x = std::max(1ul, static_cast<size_t>(gcem::log2(2 * std::numbers::pi * k) / 2));
-        dispatchX<k, x, x + 4>(N);
+        constexpr size_t firstSize = tlx::integer_log2_ceil(k) >= 5 ? tlx::integer_log2_ceil(k) - 4 : 1;
+        dispatchOverloads<k, firstSize>(N);
+        dispatchOverloads<k, firstSize + 1>(N);
+        dispatchOverloads<k, firstSize + 2>(N);
+        dispatchOverloads<k, firstSize + 3>(N);
+        dispatchOverloads<k, firstSize + 4>(N);
+        dispatchOverloads<k, firstSize + 5>(N);
+        dispatchOverloads<k, firstSize + 6>(N);
+        dispatchOverloads<k, firstSize + 7>(N);
     }
 };
 
