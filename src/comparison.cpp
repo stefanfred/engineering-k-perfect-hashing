@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     if (chd) {
-        chdContenderRunner(N, k, 0.95);
+        chdContenderRunner(N, k, 0.97);
     }
     if (hashdisplace) {
         hashDisplaceContenderRunner(N, k);
