@@ -93,4 +93,7 @@ if(PROJECT_IS_TOP_LEVEL)
 
     add_executable(PrintThresholds src/printThresholds.cpp)
     target_compile_features(PrintThresholds PRIVATE cxx_std_23)
+
+    add_executable(UnstableBucketFunction src/muericalIntegrationBucketFunction.cpp)
+    target_compile_features(UnstableBucketFunction PRIVATE cxx_std_23)
 endif()
