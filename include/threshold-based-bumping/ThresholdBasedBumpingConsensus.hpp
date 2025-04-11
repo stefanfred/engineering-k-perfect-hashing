@@ -337,10 +337,11 @@ private:
         std::vector<Hash128> bumped;
         for (uint64_t layer = 0; offset != total_buckets; layer++) {
             uint64_t remaining = total_buckets - offset;
-            uint64_t cur_buckets = std::ceil(keys.size() / overload_bucket_size);
+            size_t cur_keys = layer > 0 ? bumped.size() : keys.size();
+            uint64_t cur_buckets = std::ceil(cur_keys / overload_bucket_size);
             if (cur_buckets >= remaining) {
                 cur_buckets = remaining;
-            } else if ((double)(keys.size() - k * cur_buckets) / (remaining - cur_buckets) > overload_bucket_size) {
+            } else if ((double)(cur_keys - k * cur_buckets) / (remaining - cur_buckets) > overload_bucket_size) {
                 cur_buckets = remaining;
             }
 
