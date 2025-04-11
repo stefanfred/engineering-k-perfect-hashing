@@ -128,7 +128,7 @@ void dump_stats() {
 template <uint64_t k, int threshold_size>
 class ThresholdBasedBumpingConsensus {
 private:
-    static_assert(threshold_size >= 1);
+    static_assert(threshold_size > 1);
     static_assert(k > 0);
     uint64_t n;
     std::vector<uint64_t> thresholds;

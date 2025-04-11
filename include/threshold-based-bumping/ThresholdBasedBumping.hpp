@@ -136,7 +136,7 @@ public:
 
 template<uint64_t K, int THRESHOLD_SIZE, typename Filter = RibbonFilter>
 class ThresholdBasedBumping {
-    static_assert(THRESHOLD_SIZE >= 1);
+    static_assert(THRESHOLD_SIZE > 1);
     static_assert(K > 0);
 private:
     static constexpr uint64_t _k = K;

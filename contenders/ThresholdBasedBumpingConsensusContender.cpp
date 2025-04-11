@@ -20,7 +20,7 @@ void dispatchOverloadsConsensus(size_t N) {
 template <size_t k>
 struct ThresholdBasedBumpingConsensusContenderRunner {
     void operator() (size_t N) const {
-        constexpr size_t firstSize = tlx::integer_log2_ceil(k) >= 5 ? tlx::integer_log2_ceil(k) - 4 : 1;
+        constexpr size_t firstSize = tlx::integer_log2_ceil(k) >= 6 ? tlx::integer_log2_ceil(k) - 4 : 2;
         dispatchOverloadsConsensus<k, firstSize>(N);
         dispatchOverloadsConsensus<k, firstSize + 1>(N);
         dispatchOverloadsConsensus<k, firstSize + 2>(N);
