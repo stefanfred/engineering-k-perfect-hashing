@@ -75,8 +75,8 @@ public:
     PaCHash() : n_buckets(0) {
     }
 
-    PaCHash(int k, double bucket_size, const std::vector<std::string> &keys) {
-        n_buckets = std::ceil(keys.size() / bucket_size);
+    PaCHash(int k, double a, const std::vector<std::string> &keys) {
+        n_buckets = std::ceil(a * keys.size() / k);
         std::vector<Hash128> keysHashed;
         keysHashed.reserve(keys.size());
         for (const std::string & key : keys) {
@@ -84,13 +84,13 @@ public:
             hash.hi = bytehamster::util::fastrange64(hash.hi, n_buckets);
             keysHashed.push_back(hash);
         }
-        build(k, bucket_size, keysHashed);
+        build(k, a, keysHashed);
     }
 
 private:
-    void build(int k, double bucket_size, std::vector<Hash128> keys) {
+    void build(int k, double a, std::vector<Hash128> keys) {
         uint64_t n_bins = (keys.size() + k - 1) / k;
-        n_buckets = std::ceil(keys.size() / bucket_size);
+        n_buckets = std::ceil(a * keys.size() / k);
 
         ips2ra::sort(keys.begin(), keys.end(),[](const Hash128 &key) -> uint64_t { return key.hi; });
 
@@ -148,6 +148,7 @@ private:
 #endif
 
         ribbon = SimpleRibbon<1>(ribbon_data);
+        std::cout<<"Num ribbon: "<<ribbon_data.size()<<std::endl;
         ef = EliasFano(threshold);
     }
 };
