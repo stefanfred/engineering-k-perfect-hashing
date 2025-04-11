@@ -9,6 +9,7 @@ jobsBase=(
     "$params --thresholdBased"
     "$params --thresholdBasedConsensus"
     "$params --kRecSplit"
+    "$params --thresholdBasedOld"
 )
 jobsAll=()
 for i in "${!jobsBase[@]}"; do

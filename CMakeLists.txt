@@ -65,6 +65,7 @@ if(PROJECT_IS_TOP_LEVEL)
     target_include_directories(PerfectHashingCompetitors INTERFACE contenders)
     target_link_libraries(PerfectHashingCompetitors INTERFACE ByteHamster::Util)
     target_link_libraries(PerfectHashingCompetitors INTERFACE Kphf::PaCHash Kphf::RecSplit Kphf::HashDisplace Kphf::ThresholdBasedBumping)
+    target_include_directories(PerfectHashingCompetitors INTERFACE extlib/consensus-recsplit/include)
 
     file(GLOB cmphSources extlib/cmph/src/**.c)
     list(FILTER cmphSources EXCLUDE REGEX ".*cmph/src/(bdz_gen_lookup_table|bm_numbers|sdbm_hash|fnv_hash|djb2_hash|hashtree|buffer_manage|main).c$")

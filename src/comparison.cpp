@@ -5,6 +5,7 @@
 #include "PaCHashContender.hpp"
 #include "ThresholdBasedBumpingContender.hpp"
 #include "ThresholdBasedBumpingConsensusContender.hpp"
+#include "ThresholdBasedBumpingOldContender.hpp"
 #include "KRecSplitContender.hpp"
 
 int main(int argc, char** argv) {
@@ -15,6 +16,7 @@ int main(int argc, char** argv) {
     bool pachash = false;
     bool thresholdbasedbumping = false;
     bool thresholdBasedBumpingConsensus = false;
+    bool thresholdbasedbumpingOld = false;
     bool kRecSplit = false;
 
     tlx::CmdlineParser cmd;
@@ -30,6 +32,7 @@ int main(int argc, char** argv) {
     cmd.add_flag("pachash", pachash, "Execute PaCHash benchmark");
     cmd.add_flag("thresholdBased", thresholdbasedbumping, "Execute threshold based bumping benchmark");
     cmd.add_flag("thresholdBasedConsensus", thresholdBasedBumpingConsensus, "Execute threshold based bumping consensus benchmark");
+    cmd.add_flag("thresholdBasedOld", thresholdbasedbumpingOld, "Execute threshold based bumping old implementation from the literature");
     cmd.add_flag("kRecSplit", kRecSplit, "Execute KRecSplit benchmark");
 
     if (!cmd.process(argc, argv)) {
@@ -49,6 +52,9 @@ int main(int argc, char** argv) {
     }
     if (thresholdBasedBumpingConsensus) {
         thresholdBasedBumpingConsensusContenderRunner(N, k);
+    }
+    if (thresholdbasedbumpingOld) {
+        thresholdBasedBumpingOldContenderRunner(N, k);
     }
     if (kRecSplit) {
         kRecSplitContenderRunner(N, k);

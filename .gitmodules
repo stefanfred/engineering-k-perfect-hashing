@@ -19,3 +19,6 @@
 [submodule "extlib/fips"]
 	path = extlib/fips
 	url = https://github.com/ByteHamster/FiPS.git
+[submodule "extlib/consensus-recsplit"]
+	path = extlib/consensus-recsplit
+	url = https://github.com/ByteHamster/ConsensusRecSplit.git
