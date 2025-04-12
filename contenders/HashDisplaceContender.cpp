@@ -13,8 +13,8 @@ struct HashDisplaceContenderRunner {
         // TODO There is no good reason for this formula
         const double b = sqrt(k) * log2(2 * std::numbers::pi * k) * 1.25;
         for (size_t i = 1; i <= 10; i++) {
-            size_t bucketSize = (b * 5) / 10;
-            //HashDisplaceContender<k, OptimalBucketFunction<k>, CompactEncoding>(N, bucketSize).run();
+            size_t bucketSize = (b * i) / 10;
+            HashDisplaceContender<k, OptimalBucketFunction<k>, CompactEncoding>(N, bucketSize).run();
             HashDisplaceContender<k, OptimalBucketFunction<k>, RiceEncoding>(N, bucketSize).run();
         }
     }
