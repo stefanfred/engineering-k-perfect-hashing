@@ -1,7 +1,7 @@
 #pragma once
 #include "optimalThresholds.hpp"
 
-
+namespace kphf::ThresholdBasedBumping {
 auto compute_thresholds_asymp(uint64_t _k, double bucket_size, uint64_t n_thresholds) {
     double shape = 0.5 * double(_k + 1);
     double rate = 0.5 * bucket_size;
@@ -30,4 +30,5 @@ auto compute_thresholds_asymp(uint64_t _k, double bucket_size, uint64_t n_thresh
     res.push_back(1.0);
 
     return res;
+}
 }

@@ -1,16 +1,11 @@
 #pragma once
 
 #include <vector>
-#include <limits>
 #include <cstdint>
-#include <cassert>
 #include <cmath>
-#include <iomanip>
-#include <algorithm>
-#include <unordered_map>
-#include <ranges>
+#include <common.hpp>
 
-
+namespace kphf::ThresholdBasedBumping {
 double gammapdf(double x, double rate, double shape) {
     if (x < 0.000001) {
         return 0.0;
@@ -44,7 +39,7 @@ struct PrecomputedIntegral {
     }
 };
 
-auto compute_thresholds(uint64_t _k, double bucket_size, uint64_t n_thresholds) {
+auto compute_thresholds_normalized(uint64_t _k, double bucket_size, uint64_t n_thresholds) {
     double shape = _k + 1;
     double rate = bucket_size;
     PrecomputedIntegral prec(rate, shape);
@@ -83,4 +78,15 @@ auto compute_thresholds(uint64_t _k, double bucket_size, uint64_t n_thresholds) 
 
         return res;
     }
+}
+
+template<uint64_t n_thresholds>
+std::array<uint64_t, n_thresholds> compute_thresholds(uint64_t _k, double bucket_size) {
+    auto res = compute_thresholds_normalized(_k, bucket_size, n_thresholds);
+    std::array<uint64_t, n_thresholds> raw;
+    for (size_t i = 0; i < n_thresholds; ++i) {
+        raw[i] = double_to_u64(res[i]);
+    }
+    return raw;
+}
 }

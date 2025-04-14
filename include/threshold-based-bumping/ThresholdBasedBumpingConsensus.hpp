@@ -82,29 +82,42 @@ inline double best_error(uint64_t n, size_t k, const std::vector<ThresholdInfo> 
     return goal;
 }
 
+struct AllowedImperfectBumpingEntry {
+    uint64_t allowedBumped;
+    uint64_t probability;
+};
+
 template <uint64_t k, int threshold_size>
-std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> compute_thresholds_and_error(double lamda) {
-    uint64_t n_thresholds = 1ul << threshold_size;
-    std::vector<double> thresholds = compute_thresholds(k, lamda*k, n_thresholds);
+struct AllowedImperfectBumping {
+    static constexpr uint64_t n_thresholds = 1ul << threshold_size;
+    const uint64_t max_n;
+    std::vector<double> thresholds;
+    std::vector<ThresholdInfo> threshold_info;
+    std::vector<double> lgamma_cache;
+    std::vector<AllowedImperfectBumpingEntry> errors;
 
-    uint64_t max_n = static_cast<uint64_t>(2ul * k * lamda);
-    std::vector<ThresholdInfo> threshold_info = compute_threshold_info(thresholds);
-    std::vector<double> lgamma_cache = compute_lgamma_cache(max_n);
+    AllowedImperfectBumping(double lambda)
+        : max_n(static_cast<uint64_t>(2ul * k * lambda)) {
+        thresholds = ThresholdBasedBumping::compute_thresholds_normalized(k, lambda*k, n_thresholds);
+        threshold_info = compute_threshold_info(thresholds);
+        lgamma_cache = compute_lgamma_cache(max_n);
+        errors.resize(max_n + 1);
 
-    std::vector<uint64_t> thresholds_final(n_thresholds);
-    for (uint64_t i = 0; i < n_thresholds; i++) {
-        thresholds_final[i] = ThresholdBasedBumping::double_to_u64(thresholds[i]);
+        for (uint64_t n = 0; n <= max_n; n++) {
+            double e = best_error(n, k, threshold_info, lgamma_cache);
+            uint64_t q = e;
+            errors[n] = {q+1, ThresholdBasedBumping::double_to_u64(e-q)};
+        }
     }
 
-    std::vector<std::pair<uint64_t, uint64_t>> errors(max_n+1);
-    for (uint64_t n = 0; n <= max_n; n++) {
-        double e = best_error(n, k, threshold_info, lgamma_cache);
-        uint64_t q = e;
-        errors[n] = {q+1, ThresholdBasedBumping::double_to_u64(e-q)};
+    AllowedImperfectBumpingEntry getAllowed(size_t actualBucketSize) {
+        return errors[actualBucketSize];
     }
 
-    return {thresholds_final, errors};
-}
+    size_t maxBucketSize() {
+        return max_n;
+    }
+};
 
 #ifdef STATS
 uint64_t perfect_thresholds = 0, total_thresholds = 0, extra_bumped = 0;
@@ -133,8 +146,9 @@ class ThresholdBasedBumpingConsensus {
 private:
     static_assert(threshold_size > 1);
     static_assert(k > 0);
+    static constexpr uint64_t n_thresholds = 1ul << threshold_size;
     uint64_t n;
-    std::vector<uint64_t> thresholds;
+    std::array<uint64_t, n_thresholds> avail_thresholds;
     std::vector<std::pair<uint64_t, Consensus>> layers;
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
@@ -154,7 +168,7 @@ public:
             tidx = decrypt(seed, tidx);
             uint64_t f = bytehamster::util::remix(hash.lo + seed + i);
 
-            if (f < thresholds[tidx]) {
+            if (f < avail_thresholds[tidx]) {
                 return offset + b;
             }
 
@@ -170,6 +184,7 @@ public:
             s += c.count_bits() - sizeof(c) * 8;
         }
         return sizeof(*this) * 8
+            - sizeof(avail_thresholds) * 8 // Lookup table independent of keys, could actually be static constexpr
             + layers.capacity() * sizeof(layers[0])
             + s
             + phf.getBits() - sizeof(phf) * 8
@@ -196,16 +211,16 @@ private:
         std::vector<uint64_t> &emptySlots;
         std::vector<Hash128> bumped;
 
-        const std::vector<uint64_t> &thresholds;
-        const std::vector<std::pair<uint64_t, uint64_t>> &errors;
+        const std::array<uint64_t, n_thresholds> &thresholds;
+        AllowedImperfectBumping<k, threshold_size> &allowedImperfectBumping;
 
-        LayerBuilder(const std::vector<uint64_t> &thresholds,
-                    const std::vector<std::pair<uint64_t, uint64_t>> &errors,
+        LayerBuilder(const std::array<uint64_t, n_thresholds> &thresholds,
+                    AllowedImperfectBumping<k, threshold_size> &allowedImperfectBumping,
                     std::vector<Key> &keys, uint64_t layer, uint64_t buckets,
                     uint64_t offset, std::vector<uint64_t> &emptySlots)
                 : keys(keys), current(keys.begin(), keys.begin()),
                   cur_bucket(0), total_buckets(buckets), layer(layer), offset(offset),
-                  emptySlots(emptySlots), thresholds(thresholds), errors(errors) {
+                  emptySlots(emptySlots), thresholds(thresholds), allowedImperfectBumping(allowedImperfectBumping) {
         }
 
         std::optional<uint64_t> advance(uint64_t seed) {
@@ -267,11 +282,11 @@ private:
 
         std::optional<uint64_t> find(uint64_t seed, uint64_t prev) {
             uint64_t goal = std::min(k, current.size());
-            uint64_t error_bound, error_prob;
-            if (current.size() < errors.size()) {
-                std::tie(error_bound, error_prob) = errors[current.size()];
+            AllowedImperfectBumpingEntry allowed = {};
+            if (current.size() < allowedImperfectBumping.maxBucketSize()) {
+                allowed = allowedImperfectBumping.getAllowed(current.size());
             } else {
-                error_bound = k+1, error_prob = 0;
+                allowed = {k + 1, 0};
             }
             for (uint64_t tidx = prev; tidx > 0;) {
                 tidx--;
@@ -279,10 +294,10 @@ private:
                     [](const Key &key) { return key.fingerprint; });
                 uint64_t idx = it - current.begin();
                 uint64_t error = goal - idx;
-                if (error > error_bound) {
+                if (error > allowed.allowedBumped) {
                     break;
                 }
-                if (error < error_bound || bytehamster::util::remix(seed + tidx) < error_prob) {
+                if (error < allowed.allowedBumped || bytehamster::util::remix(seed + tidx) < allowed.probability) {
                     for (Key & key: current | std::views::drop(idx)) {
                         bumped.push_back(key.hash);
                     }
@@ -324,9 +339,9 @@ private:
     }
 
     explicit ThresholdBasedBumpingConsensus(std::vector<Key> keys, double overload)
-            : n(keys.size()), gaps({}, 0) {
-        std::vector<std::pair<uint64_t, uint64_t>> errors;
-        std::tie(thresholds, errors) = compute_thresholds_and_error<k, threshold_size>(overload);
+            : n(keys.size()), gaps({}, 0),
+              avail_thresholds(ThresholdBasedBumping::compute_thresholds<n_thresholds>(k, k * overload)) {
+        AllowedImperfectBumping<k, threshold_size> allowedImperfectBumping(overload);
 
         double overload_bucket_size = k * overload;
         uint64_t total_buckets = (n + k - 1) / k;
@@ -359,7 +374,7 @@ private:
 
             sort_buckets(keys);
 
-            LayerBuilder builder(thresholds, errors, keys, layer, cur_buckets, offset, emptySlots);
+            LayerBuilder builder(avail_thresholds, allowedImperfectBumping, keys, layer, cur_buckets, offset, emptySlots);
             Consensus consensus(builder);
             layers.emplace_back(cur_buckets, std::move(consensus));
             std::swap(bumped, builder.bumped);

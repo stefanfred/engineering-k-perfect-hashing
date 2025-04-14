@@ -24,16 +24,6 @@
 
 namespace kphf::ThresholdBasedBumping {
 
-template<uint64_t n_thresholds>
-std::array<uint64_t, n_thresholds> get_thresholds(uint64_t _k, double bucket_size) {
-    auto res = compute_thresholds(_k, bucket_size, n_thresholds);
-    std::array<uint64_t, n_thresholds> raw;
-    for (size_t i = 0; i < n_thresholds; ++i) {
-        raw[i] = double_to_u64(res[i]);
-    }
-    return raw;
-}
-
 #ifdef STATS
 uint64_t perfect_thresholds = 0, total_thresholds = 0, extra_bumped = 0;
 uint64_t bumped_keys = 0, total_keys = 0;
@@ -223,7 +213,7 @@ public:
     }
 
     explicit ThresholdBasedBumping(std::vector<Key> keys, double overload)
-            : avail_thresholds(get_thresholds<n_thresholds>(_k, _k * overload)),
+            : avail_thresholds(compute_thresholds<n_thresholds>(_k, _k * overload)),
               n(keys.size()), filter(typename Filter::Builder().build()),
               gaps(std::vector<uint64_t>(), 0) {
         typename Filter::Builder filter;
