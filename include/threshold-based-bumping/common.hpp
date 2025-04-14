@@ -1,5 +1,7 @@
 #pragma once
 
+#include <hash128.hpp>
+
 namespace kphf::ThresholdBasedBumping {
 	struct Key {
 		uint64_t bucket, fingerprint;
@@ -16,10 +18,6 @@ namespace kphf::ThresholdBasedBumping {
 	void sort_fingerprints(R &&r) {
 		ips2ra::sort(r.begin(), r.end(),
 		  [](const Key &key) -> uint64_t { return key.fingerprint; });
-	}
-
-	inline uint64_t double_to_u64(double x) {
-		return x == 1.0 ? ~0ul : static_cast<uint64_t>(ldexp(x, 64));
 	}
 
 }
