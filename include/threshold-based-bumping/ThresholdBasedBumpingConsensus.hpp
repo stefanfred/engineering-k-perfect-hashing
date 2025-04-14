@@ -101,16 +101,15 @@ struct AllowedImperfectBumping {
         thresholds = ThresholdBasedBumping::compute_thresholds_normalized(k, lambda*k, n_thresholds);
         threshold_info = compute_threshold_info(thresholds);
         lgamma_cache = compute_lgamma_cache(max_n);
-        errors.resize(max_n + 1);
-
-        for (uint64_t n = 0; n <= max_n; n++) {
-            double e = best_error(n, k, threshold_info, lgamma_cache);
-            uint64_t q = e;
-            errors[n] = {q+1, ThresholdBasedBumping::double_to_u64(e-q)};
-        }
+        errors.resize(max_n + 1, {~0ul, 0});
     }
 
     AllowedImperfectBumpingEntry getAllowed(size_t actualBucketSize) {
+        if (errors[actualBucketSize].allowedBumped == ~0ul) {
+            double e = best_error(actualBucketSize, k, threshold_info, lgamma_cache);
+            uint64_t q = static_cast<uint64_t>(e);
+            errors[actualBucketSize] = {q+1, ThresholdBasedBumping::double_to_u64(e-q)};
+        }
         return errors[actualBucketSize];
     }
 
