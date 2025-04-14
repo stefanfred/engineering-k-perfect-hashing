@@ -23,60 +23,63 @@
 namespace kphf::ThresholdBasedBumpingConsensus {
 
 struct ThresholdInfo {
-	double threshold;
-	double l1, l2;
+    double threshold;
+    double l1, l2;
 
-	ThresholdInfo(double t): threshold(t), l1(log(t)), l2(log(1-t)) {}
+    ThresholdInfo(double t): threshold(t), l1(log(t)), l2(log(1-t)) {}
 };
 
 inline std::vector<ThresholdInfo> compute_threshold_info(const std::vector<double> &thresholds) {
-	std::vector<ThresholdInfo> threshold_info;
-	for (double t: thresholds) threshold_info.emplace_back(t);
-	return threshold_info;
+    std::vector<ThresholdInfo> threshold_info;
+    for (double t: thresholds) {
+        threshold_info.emplace_back(t);
+    }
+    return threshold_info;
 }
 
 inline std::vector<double> compute_lgamma_cache(uint64_t limit) {
-	std::vector<double> r(limit + 2);
-	for (size_t i = 0; i < r.size(); i++) r[i] = lgamma(i);
-	return r;
+    std::vector<double> r(limit + 2);
+    for (size_t i = 0; i < r.size(); i++) {
+        r[i] = lgamma(i);
+    }
+    return r;
 }
 
-inline double success_exp(uint64_t n, uint64_t k,
-  const std::vector<ThresholdInfo> &thresholds,
-  const std::vector<double> &lgamma_cache) {
-	if (k > n) return 0;
-	double lbinom = lgamma_cache[n + 1] - lgamma_cache[k + 1] - lgamma_cache[n - k + 1];
-	double e = 0;
-	for (const auto &[threshold, l1, l2] : thresholds) {
-		if (std::isinf(l1)) {
-			e += (k == 0);
-		} else if (std::isinf(l2)) {
-			e += (k == n);
-		} else {
-			e += exp(lbinom + k * l1 + (n - k) * l2);
-		}
-	}
-	return e;
+inline double success_exp(uint64_t n, uint64_t k, const std::vector<ThresholdInfo> &thresholds,
+        const std::vector<double> &lgamma_cache) {
+    if (k > n) return 0;
+    double lbinom = lgamma_cache[n + 1] - lgamma_cache[k + 1] - lgamma_cache[n - k + 1];
+    double e = 0;
+    for (const auto &[threshold, l1, l2] : thresholds) {
+        if (std::isinf(l1)) {
+            e += (k == 0);
+        } else if (std::isinf(l2)) {
+            e += (k == n);
+        } else {
+            e += exp(lbinom + k * l1 + (n - k) * l2);
+        }
+    }
+    return e;
 }
 
-inline std::pair<double, double> best_error(uint64_t n, size_t k, const std::vector<ThresholdInfo> &thresholds, const std::vector<double> &lgamma_cache) {
+inline double best_error(uint64_t n, size_t k, const std::vector<ThresholdInfo> &thresholds, const std::vector<double> &lgamma_cache) {
     uint64_t goal = std::min(n, k);
     constexpr double TUNE = 1.05;
     double need = TUNE;
-	need -= success_exp(n, goal, thresholds, lgamma_cache);
+    need -= success_exp(n, goal, thresholds, lgamma_cache);
     if (need <= 0) {
-        return {0,0};
+        return 0;
     }
     double avg = 0;
     for (uint64_t error = 1; error <= goal; error++) {
         double s = success_exp(n, goal-error, thresholds, lgamma_cache);
         if (s >= need) {
-            return {error - 1 + need/s, avg + error * need};
+            return error - 1 + need/s;
         }
         need -= s;
         avg += error * s;
     }
-    return {goal, std::numeric_limits<double>::infinity()};
+    return goal;
 }
 
 template <uint64_t k, int threshold_size>
@@ -85,8 +88,8 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> com
     std::vector<double> thresholds = compute_thresholds(k, lamda*k, n_thresholds);
 
     uint64_t max_n = static_cast<uint64_t>(2ul * k * lamda);
-	std::vector<ThresholdInfo> threshold_info = compute_threshold_info(thresholds);
-	std::vector<double> lgamma_cache = compute_lgamma_cache(max_n);
+    std::vector<ThresholdInfo> threshold_info = compute_threshold_info(thresholds);
+    std::vector<double> lgamma_cache = compute_lgamma_cache(max_n);
 
     std::vector<uint64_t> thresholds_final(n_thresholds);
     for (uint64_t i = 0; i < n_thresholds; i++) {
@@ -95,7 +98,7 @@ std::pair<std::vector<uint64_t>, std::vector<std::pair<uint64_t, uint64_t>>> com
 
     std::vector<std::pair<uint64_t, uint64_t>> errors(max_n+1);
     for (uint64_t n = 0; n <= max_n; n++) {
-        double e = best_error(n, k, threshold_info, lgamma_cache).first;
+        double e = best_error(n, k, threshold_info, lgamma_cache);
         uint64_t q = e;
         errors[n] = {q+1, ThresholdBasedBumping::double_to_u64(e-q)};
     }

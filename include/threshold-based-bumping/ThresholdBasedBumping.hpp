@@ -165,10 +165,10 @@ public:
             Key key = calculateBucketAndFingerprint(hash, i, cur_buckets);
             key.bucket += offset;
             uint64_t tidx;
-			uint64_t off = key.bucket * threshold_size;
-			memcpy(&tidx, thresholds.data() + off/8, 8);
-			tidx >>= off%8;
-			tidx &= (uint64_t(1) << threshold_size) - 1;
+            uint64_t off = key.bucket * threshold_size;
+            memcpy(&tidx, thresholds.data() + off/8, 8);
+            tidx >>= off%8;
+            tidx &= (uint64_t(1) << threshold_size) - 1;
 
             if (tidx != 0 && key.fingerprint < avail_thresholds[tidx-1]) {
                 return key.bucket;
@@ -319,11 +319,11 @@ public:
 #endif
 
                 uint64_t b = offset + j;
-				uint64_t off = b * threshold_size;
-				uint64_t word;
-				memcpy(&word, thresholds.data() + off/8, 8);
-				word |= tidx << off%8;
-				memcpy(thresholds.data() + off/8, &word, 8);
+                uint64_t off = b * threshold_size;
+                uint64_t word;
+                memcpy(&word, thresholds.data() + off/8, 8);
+                word |= tidx << off%8;
+                memcpy(thresholds.data() + off/8, &word, 8);
 
                 for (uint64_t c = 0; c < _k - in_bucket; c++) {
                     spots.push_back(offset + j);
