@@ -187,8 +187,9 @@ public:
     }
 
     static inline Key calculateBucketAndFingerprint(Hash128 key, size_t layer, size_t cur_buckets) {
-        uint64_t b = bytehamster::util::fastrange64(key.hi  * ~layer, cur_buckets);
-        uint64_t f = key.lo * ~layer;
+        uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + layer), cur_buckets);
+        uint64_t f = bytehamster::util::remix(key.lo + layer);
+
         return Key(b, f, key);
     }
 

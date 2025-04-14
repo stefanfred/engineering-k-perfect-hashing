@@ -53,7 +53,6 @@ namespace kphf::HashDisplace {
         uint64_t nbins;
         BucketFunction bucketFunction;
         Encoding seeds;
-        std::array<uint32_t, 10> fastSeeds;
     public:
         uint64_t operator()(const std::string &item) const {
             return operator()(Hash128(item));
@@ -61,13 +60,12 @@ namespace kphf::HashDisplace {
 
         uint64_t operator()(Hash128 item) const {
             uint64_t bucket = bucketFunction(item.hi);
-            uint64_t seed = bucket < fastSeeds.size() ? fastSeeds[bucket] : seeds[bucket];
-            return bytehamster::util::fastrange64(item.lo * ~seed, nbins);
+            uint64_t seed = seeds[bucket];
+            return bytehamster::util::fastrange64(bytehamster::util::remix(item.lo + seed), nbins);
         }
 
         [[nodiscard]] size_t count_bits() const {
             return 8 * sizeof(*this)
-                   + fastSeeds.size() * sizeof(uint32_t) * 8
                    + (seeds.count_bits() - 8 * sizeof(seeds));
         }
 
@@ -129,7 +127,8 @@ namespace kphf::HashDisplace {
                 for (seed = 0;; seed++) {
                     uint64_t j;
                     for (j = 0; j < bucket.size(); j++) {
-                        uint64_t hash = bytehamster::util::fastrange64(bucket[j].second * ~seed, nbins);
+                        uint64_t hash = bytehamster::util::fastrange64(
+                                bytehamster::util::remix(bucket[j].second + seed), nbins);
                         if (counts[hash] == k) {
                             break;
                         }
@@ -139,7 +138,9 @@ namespace kphf::HashDisplace {
                         break;
                     }
                     while (j > 0) {
-                        uint64_t hash = bytehamster::util::fastrange64(bucket[--j].second * ~seed, nbins);
+                        uint64_t hash = bytehamster::util::fastrange64(
+                                bytehamster::util::remix(bucket[--j].second + seed), nbins);
+
                         counts[hash]--;
                     }
                 }
@@ -149,9 +150,6 @@ namespace kphf::HashDisplace {
 #endif
             }
             seeds = Encoding(seeds_vec);
-            for (size_t i = 0; i < fastSeeds.size(); ++i) {
-                fastSeeds[i] = seeds_vec[i];
-            }
         }
     };
 }
