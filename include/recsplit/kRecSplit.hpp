@@ -256,118 +256,8 @@ template <size_t K, size_t LEAF_SIZE> static constexpr uint64_t split_golomb_b(c
 #define skip_bits(m) (memo[m] & 0xFFFF)
 #define skip_nodes(m) ((memo[m] >> 16) & 0x7FF)
 
-enum class BumpStrategy {
-    RANK_RECURSE,
-    RANK_SPLIT,
-    INTERSPERSE_SPLIT,
-    INTERSPERSE_SPLIT_NOBITS,
-    BINS_MOD_RECURSE,
-    SELECT_RECURSE,
-};
-
-template <size_t K, size_t LEAF_SIZE, BumpStrategy BS = BumpStrategy::INTERSPERSE_SPLIT_NOBITS,
-        util::AllocType AT = util::AllocType::MALLOC>
+template <size_t K, size_t LEAF_SIZE, util::AllocType AT = util::AllocType::MALLOC>
 class RecSplit;
-
-template<size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT>
-struct ExtraFields {
-    size_t extraBitCount() { return 0; }
-
-    void stats(auto &show) {
-        (void) show;
-    }
-};
-
-template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
-struct ExtraFields<K, LEAF_SIZE, BumpStrategy::RANK_RECURSE, AT> {
-    size_t unbumped_bins;
-    unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::RANK_RECURSE, AT>> recurse_bumped = nullptr;
-    Rank9<AT> *buckets_bumped_rank = nullptr;
-    Vector<uint64_t, AT> buckets_bumped;
-
-    size_t extraBitCount() {
-        return
-            (recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount())
-            + buckets_bumped_rank->bitCount() - 8 * sizeof(*buckets_bumped_rank)
-            + buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
-    }
-
-    void stats(auto &show) {
-        show("Recursive structure", recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
-        show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-        show("Rank on bumped buckets", buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank));
-    }
-};
-
-template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
-struct ExtraFields<K, LEAF_SIZE, BumpStrategy::RANK_SPLIT, AT> {
-    size_t unbumped_bins;
-    Rank9<AT> buckets_bumped_rank;
-    Vector<uint64_t, AT> buckets_bumped;
-
-    size_t extraBitCount() {
-        return
-            buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank)
-            + buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
-    }
-
-    void stats(auto &show) {
-        show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-        show("Rank on bumped buckets", buckets_bumped_rank.bitCount() - 8 * sizeof(buckets_bumped_rank));
-    }
-};
-
-template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
-struct ExtraFields<K, LEAF_SIZE, BumpStrategy::INTERSPERSE_SPLIT, AT> {
-    Vector<uint64_t, AT> buckets_bumped;
-
-    size_t extraBitCount() {
-        return buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
-    }
-
-    void stats(auto &show) {
-        show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-    }
-};
-
-template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
-struct ExtraFields<K, LEAF_SIZE, BumpStrategy::BINS_MOD_RECURSE, AT> {
-    size_t unbumped_bins;
-    unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::BINS_MOD_RECURSE, AT>> recurse_bumped;
-    Vector<uint8_t, AT> bucket_mods;
-
-    size_t extraBitCount() {
-        return
-            (recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount())
-            + bucket_mods.bitCount() - 8 * sizeof(bucket_mods);
-    }
-
-    void stats(auto &show) {
-        show("Recursive structure", recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
-        show("Bucket size modulo K", bucket_mods.bitCount() - 8 * sizeof(bucket_mods));
-    }
-};
-
-template<size_t K, size_t LEAF_SIZE, util::AllocType AT>
-struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
-    unique_ptr<RecSplit<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT>> recurse_bumped;
-    SimpleSelectHalf<AT> buckets_bumped_select;
-    Vector<uint64_t, AT> buckets_bumped;
-
-    size_t extraBitCount() {
-        return
-            (recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount())
-            + buckets_bumped_select.bitCount()
-              - 8 * sizeof(buckets_bumped_select)
-            + buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped);
-    }
-
-    void stats(auto &show) {
-        show("Recursive structure", recurse_bumped == nullptr ? 0 : recurse_bumped->bitCount());
-        show("Bumped buckets", buckets_bumped.bitCount() - 8 * sizeof(buckets_bumped));
-        show("Select on bumped buckets", buckets_bumped_select.bitCount() - 8 * sizeof(buckets_bumped_select));
-    }
-};
 
 /**
  * A class for storing minimal perfect hash functions. The template
@@ -377,8 +267,8 @@ struct ExtraFields<K, LEAF_SIZE, BumpStrategy::SELECT_RECURSE, AT> {
  * @tparam LEAF_SIZE The number of output buckets of size k in each leaf.
  * @tparam AT a type of memory allocation out of sux::util::AllocType.
  */
-template <size_t K, size_t LEAF_SIZE, BumpStrategy BS, util::AllocType AT>
-class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
+template <size_t K, size_t LEAF_SIZE, util::AllocType AT>
+class RecSplit {
     using SplitStrat = SplittingStrategy<K, LEAF_SIZE>;
 
     static constexpr size_t _k = K;
@@ -459,29 +349,10 @@ class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
      */
     size_t operator()(const hash128_t &hash) {
         size_t bucket = hash128_to_bucket(hash);
-        uint64_t cum_bins, cum_bumped, cum_keys, bit_pos;
-        size_t m;
-        if constexpr (BS == BumpStrategy::BINS_MOD_RECURSE) {
-            uint64_t cum_bins_next;
-            ef.get(bucket, cum_bins, cum_bins_next, bit_pos);
-            size_t bit = bucket * bit_width(_k - 1);
-            uint64_t mod;
-            memcpy(&mod, &this->bucket_mods + bit / 8, 8);
-            mod >>= (bit&7);
-            mod &= (1 << bit_width(_k - 1)) - 1;
-            m = (cum_bins_next - cum_bins) * _k + mod;
-        } else {
-            uint64_t cum_keys_next;
-            ef.get(bucket, cum_keys, cum_keys_next, bit_pos);
-            if constexpr (BS == BumpStrategy::RANK_RECURSE
-              || BS == BumpStrategy::RANK_SPLIT) {
-                cum_bumped = this->buckets_bumped_rank->rank(bucket);
-            } else {
-                cum_bumped = 0;
-            }
-            cum_bins = cum_keys / _k - cum_bumped;
-            m = cum_keys_next - cum_keys;
-        }
+        uint64_t cum_keys, bit_pos, cum_keys_next;
+        ef.get(bucket, cum_keys, cum_keys_next, bit_pos);
+        uint64_t cum_bins = cum_keys / _k;
+        size_t m = cum_keys_next - cum_keys;
 
         auto reader = descriptors.reader();
         reader.readReset(bit_pos, skip_bits(m));
@@ -540,67 +411,24 @@ class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
 
         if (m == _k) return cum_bins;
 
-        if constexpr (BS == BumpStrategy::RANK_RECURSE
-                || BS == BumpStrategy::BINS_MOD_RECURSE
-                || BS == BumpStrategy::SELECT_RECURSE) {
-            size_t rec;
-            if (this->recurse_bumped == nullptr) {
-                rec = 0;
-            } else {
-                rec = (*this->recurse_bumped)(hash);
-            }
-            if constexpr (BS == BumpStrategy::SELECT_RECURSE) {
-                bucket = this->buckets_bumped_select.select(rec);
-                if (bucket == nbuckets) return keys_count / _k;
-                uint64_t cum_keys_next;
-                ef.get(bucket, cum_keys, cum_keys_next, bit_pos);
-                return cum_keys_next / _k - 1;
-            } else {
-                return this->unbumped_bins + rec;
-            }
-        } else if constexpr (BS == BumpStrategy::RANK_SPLIT
-                || BS == BumpStrategy::INTERSPERSE_SPLIT
-                || BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
-            const size_t split = _k - cum_keys % _k;
+        const size_t split = _k - cum_keys % _k;
 
-            bool split_right;
-            if (split >= m) {
-                split_right = false;
-            } else {
-                const double p = sqrt(m / (2 * M_PI * split * (m - split)));
-                const uint64_t seed = end(start_seed)[-1] + reader.readGolomb(p);
-                const size_t hmod = remap16(remix(hash.second + seed), m);
-                split_right = hmod >= split;
-            }
-
-            if constexpr (BS == BumpStrategy::RANK_SPLIT) {
-                return this->unbumped_bins + cum_bumped + split_right;
-            } else {
-                bucket += split_right;
-                uint64_t cum_keys_next;
-                if constexpr (BS == BumpStrategy::INTERSPERSE_SPLIT) {
-                    uint64_t v = this->buckets_bumped[bucket/64] >> (bucket&63);
-                    if (v == 0) {
-                        bucket &= ~uint64_t(63);
-                        do {
-                            bucket += 64;
-                            v = this->buckets_bumped[bucket/64];
-                        } while (v == 0);
-                    }
-                    bucket += rho(v);
-                    if (bucket == nbuckets) return keys_count / _k;
-                    ef.get(bucket, cum_keys, cum_keys_next, bit_pos);
-                } else if constexpr (BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
-                    do {
-                        if (bucket == nbuckets) return keys_count / _k;
-                        ef.get(bucket++, cum_keys, cum_keys_next, bit_pos);
-                    } while (cum_keys % _k <= cum_keys_next % _k);
-                }
-                return cum_keys_next / _k - 1;
-            }
+        bool split_right;
+        if (split >= m) {
+            split_right = false;
         } else {
-            throw runtime_error("Unknown bump strategy");
+            const double p = sqrt(m / (2 * M_PI * split * (m - split)));
+            const uint64_t seed = end(start_seed)[-1] + reader.readGolomb(p);
+            const size_t hmod = remap16(remix(hash.second + seed), m);
+            split_right = hmod >= split;
         }
+
+        bucket += split_right;
+            do {
+                if (bucket == nbuckets) return keys_count / _k;
+                ef.get(bucket++, cum_keys, cum_keys_next, bit_pos);
+            } while (cum_keys % _k <= cum_keys_next % _k);
+        return cum_keys_next / _k - 1;
     }
 
     /** Returns the value associated with the given key.
@@ -616,9 +444,7 @@ class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
     size_t bitCount() {
         return 8 * sizeof(*this)
             + descriptors.getBits()
-            + ef.bitCountCumKeys() + ef.bitCountPosition()
-            + this->extraBitCount();
-        ;
+            + ef.bitCountCumKeys() + ef.bitCountPosition();
     }
 
   private:
@@ -842,83 +668,42 @@ class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
         nbuckets = max(1, (keys_count + bucket_size - 1) / bucket_size);
         auto bucket_size_acc = vector<int64_t>(nbuckets + 1);
         auto bucket_pos_acc = vector<int64_t>(nbuckets + 1);
-        if constexpr (BS == BumpStrategy::RANK_RECURSE
-                || BS == BumpStrategy::RANK_SPLIT
-                || BS == BumpStrategy::INTERSPERSE_SPLIT
-                || BS == BumpStrategy::SELECT_RECURSE) {
-            this->buckets_bumped.size((nbuckets + 1 + 63) / 64);
-        }
 
         sort(hashes, hashes + keys_count, [this](const hash128_t &a, const hash128_t &b) { return hash128_to_bucket(a) < hash128_to_bucket(b); });
         typename kphf::RecSplit::RiceBitVector<AT>::Builder builder;
 
         bucket_size_acc[0] = bucket_pos_acc[0] = 0;
         vector<hash128_t> bumped_keys;
-        if constexpr (BS == BumpStrategy::RANK_RECURSE
-                || BS == BumpStrategy::RANK_SPLIT
-                || BS == BumpStrategy::BINS_MOD_RECURSE) {
-            this->unbumped_bins = 0;
-        }
-        if constexpr (BS == BumpStrategy::BINS_MOD_RECURSE) {
-            this->bucket_mods.size((nbuckets * bit_width(_k - 1) + 7) / 8 + 7);
-        }
         for (size_t i = 0, last = 0; i < nbuckets; i++) {
             vector<hash128_t> bucket;
             for (; last < keys_count && hash128_to_bucket(hashes[last]) == i; last++) bucket.push_back(hashes[last]);
 
             const size_t s = bucket.size();
             assert((s < MAX_BUCKET_SIZE<K, LEAF_SIZE>));
-            if constexpr (BS == BumpStrategy::BINS_MOD_RECURSE) {
-                bucket_size_acc[i + 1] = bucket_size_acc[i] + s / _k;
-                size_t rem = s % _k;
-                size_t bit = i * bit_width(_k - 1);
-                uint64_t word;
-                memcpy(&word, &this->bucket_mods + bit/8, 8);
-                word |= rem << (bit&7);
-                memcpy(&this->bucket_mods + bit/8, &word, 8);
-            } else {
-                bucket_size_acc[i + 1] = bucket_size_acc[i] + s;
-            }
-            if constexpr (BS == BumpStrategy::RANK_RECURSE
-                    || BS == BumpStrategy::RANK_SPLIT
-                    || BS == BumpStrategy::BINS_MOD_RECURSE) {
-                this->unbumped_bins += s / _k;
-            }
+            bucket_size_acc[i + 1] = bucket_size_acc[i] + s;
             vector<uint32_t> unary;
             recSplit(bucket, builder, unary, bumped_keys);
             builder.appendUnaryAll(unary);
-            if constexpr (BS == BumpStrategy::RANK_RECURSE
-                    || BS == BumpStrategy::RANK_SPLIT
-                    || BS == BumpStrategy::INTERSPERSE_SPLIT
-                    || BS == BumpStrategy::SELECT_RECURSE) {
-                if (bucket_size_acc[i] % _k > bucket_size_acc[i+1] % _k) {
-                    this->buckets_bumped[i / 64] |= uint64_t(1) << (i&63);
-                }
-            }
-            if constexpr (BS == BumpStrategy::RANK_SPLIT
-                    || BS == BumpStrategy::INTERSPERSE_SPLIT
-                    || BS == BumpStrategy::INTERSPERSE_SPLIT_NOBITS) {
-                const size_t m = bumped_keys.size();
-                const size_t split = _k - bucket_size_acc[i] % _k;
-                if (split < m) {
-                    uint64_t x = end(start_seed)[-1];
+            const size_t m = bumped_keys.size();
+            const size_t split = _k - bucket_size_acc[i] % _k;
+            if (split < m) {
+                uint64_t x = end(start_seed)[-1];
 
-                    size_t count[2];
-                    for (;;) {
-                        count[0] = 0;
-                        for (hash128_t item: bumped_keys) {
-                            count[remap16(remix(item.second + x), m) >= split]++;
-                        }
-                        if (count[0] == split) break;
-                        x++;
+                size_t count[2];
+                for (;;) {
+                    count[0] = 0;
+                    for (hash128_t item: bumped_keys) {
+                        count[remap16(remix(item.second + x), m) >= split]++;
                     }
-
-                    x -= end(start_seed)[-1];
-                    const double p = sqrt(m / (2 * M_PI * split * (m - split)));
-                    builder.appendGolomb(x, p);
+                    if (count[0] == split) break;
+                    x++;
                 }
-                bumped_keys.clear();
+
+                x -= end(start_seed)[-1];
+                const double p = sqrt(m / (2 * M_PI * split * (m - split)));
+                builder.appendGolomb(x, p);
             }
+            bumped_keys.clear();
             bucket_pos_acc[i + 1] = builder.getBits();
 #ifdef MORESTATS
             auto upper_leaves = (s + _k - 1) / _k;
@@ -930,30 +715,10 @@ class RecSplit: ExtraFields<K, LEAF_SIZE, BS, AT> {
             maxsize = max(maxsize, s);
 #endif
         }
-        if constexpr (BS == BumpStrategy::RANK_RECURSE
-                || BS == BumpStrategy::RANK_SPLIT
-                || BS == BumpStrategy::INTERSPERSE_SPLIT
-                || BS == BumpStrategy::SELECT_RECURSE) {
-            this->buckets_bumped[nbuckets / 64] |= uint64_t(1) << (nbuckets & 63);
-        }
         builder.appendFixed(1, 1); // Sentinel (avoids checking for parts of size 1)
         descriptors = builder.build();
         ef = DoubleEF<AT>(vector<uint64_t>(bucket_size_acc.begin(), bucket_size_acc.end()),
             vector<uint64_t>(bucket_pos_acc.begin(), bucket_pos_acc.end()));
-        if constexpr (BS == BumpStrategy::RANK_RECURSE
-                || BS == BumpStrategy::RANK_SPLIT) {
-            this->buckets_bumped_rank = new Rank9<AT>(&this->buckets_bumped, nbuckets+1);
-        } else if constexpr (BS == BumpStrategy::SELECT_RECURSE) {
-            this->buckets_bumped_select = SimpleSelectHalf<AT>(&this->buckets_bumped, nbuckets+1);
-        }
-        if constexpr (BS == BumpStrategy::RANK_RECURSE
-                || BS == BumpStrategy::BINS_MOD_RECURSE
-                || BS == BumpStrategy::SELECT_RECURSE) {
-            if (bumped_keys.size() > _k) {
-                this->recurse_bumped = make_unique<RecSplit<K, LEAF_SIZE, BS, AT>>(bumped_keys, bucket_size);
-            }
-        }
-
 #ifdef STATS
         // Evaluation purposes only
         double total = 0;

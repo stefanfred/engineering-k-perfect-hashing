@@ -5,9 +5,6 @@
 
 namespace kphf::PaCHash {
 
-// TODO: Benchmark bytehamster::util::EliasFano to see which one is faster.
-//   My guess would be that the one from the util library might be faster and more space-efficient because
-//   it uses a smaller bit vector implementation.
 class EliasFano {
 private:
 	using SimpleSelectZeroHalf = sux::bits::SimpleSelectZeroHalf<>;
