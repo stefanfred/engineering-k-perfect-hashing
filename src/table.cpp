@@ -16,15 +16,15 @@
 template <size_t k>
 struct TableRunner {
     void operator() (size_t N) const {
-        // { ChdContender(N, k, 0.97, keysPerBucket, false).run(); }
+        { ChdContender(N, k, 0.97, 8, false).run(); }
         // { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::RiceEncoding>(N, bucketSize).run(); }
         // { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::CompactEncoding>(N, bucketSize).run(); }
-        // { PaCHashContender(N, k, a).run(); }
-        // { ThresholdBasedBumpingOldContender<k>(N).run(); }
+        { PaCHashContender(N, k, k).run(); }
+        { ThresholdBasedBumpingOldContender<k>(N).run(); }
         // { ThresholdBasedBumpingContender<k, thresholdSize, false>(N, overload).run(); }
         // { ThresholdBasedBumpingContender<k, thresholdSize, true>(N, overload).run(); }
         // { ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, overload).run(); }
-        // { KRecSplitContender<k, leafSize>(N, bucketSize).run(); }
+        { KRecSplitContender<k, 2>(N, 5000).run(); }
     }
 };
 
