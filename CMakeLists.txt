@@ -92,6 +92,10 @@ if(PROJECT_IS_TOP_LEVEL)
     target_link_libraries(Comparison PRIVATE tlx ByteHamster::Util PerfectHashingCompetitors PerfectHashingCompetitorParetoRunners)
     target_compile_features(Comparison PRIVATE cxx_std_23)
 
+    add_executable(Table src/table.cpp)
+    target_link_libraries(Table PRIVATE tlx Contender ByteHamster::Util PerfectHashingCompetitors)
+    target_compile_features(Table PRIVATE cxx_std_23)
+
     add_executable(PrintThresholds src/printThresholds.cpp)
     target_compile_features(PrintThresholds PRIVATE cxx_std_23)
 
