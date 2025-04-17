@@ -15,9 +15,7 @@
 #include <Fips.h>
 
 #include <hash128.hpp>
-#include "common.hpp"
 #include "consensus.hpp"
-
 #include "optimalThresholds.hpp"
 
 namespace kphf::ThresholdBasedBumpingConsensus {
@@ -140,6 +138,21 @@ void dump_stats() {
 }
 #endif
 
+struct Key {
+    uint64_t bucket, fingerprint;
+    Hash128 hash;
+};
+
+inline void sort_buckets(std::vector<Key> &r) {
+    ips2ra::sort(r.begin(), r.end(),
+      [](const Key &key) -> uint64_t { return key.bucket; });
+}
+
+inline void sort_fingerprints(std::ranges::subrange<std::vector<Key>::iterator> &r) {
+    ips2ra::sort(r.begin(), r.end(),
+      [](const Key &key) -> uint64_t { return key.fingerprint; });
+}
+
 template <uint64_t k, int threshold_size>
 class ThresholdBasedBumpingConsensus {
 private:
@@ -151,7 +164,6 @@ private:
     std::vector<std::pair<uint64_t, Consensus>> layers;
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
-    using Key = kphf::ThresholdBasedBumping::Key;
 public:
 
     uint64_t operator()(const std::string &key) const {

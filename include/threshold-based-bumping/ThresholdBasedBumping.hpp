@@ -20,8 +20,6 @@
 
 #include "optimalThresholdsAsymp.hpp"
 
-#include "common.hpp"
-
 namespace kphf::ThresholdBasedBumping {
 
 #ifdef STATS
@@ -46,85 +44,54 @@ void dump_stats() {
 }
 #endif
 
-class DummyFilter {
-private:
-    DummyFilter() {}
+[[nodiscard]] inline uint64_t getBucket(Hash128 hash, size_t cur_buckets) {
+    return bytehamster::util::fastrange64(hash.hi, cur_buckets);
+}
 
-public:
-    class Builder {
-    public:
-        Builder() {}
+inline void sort_buckets(std::vector<Hash128> &r, size_t cur_buckets) {
+    ips2ra::sort(r.begin(), r.end(),
+                 [&](const Hash128 &key) -> uint64_t { return getBucket(key, cur_buckets); });
+}
 
-        void add(int level, std::vector<Hash128> &elems, size_t bump) {
-            (void) level, (void) elems, (void) bump;
+inline void sort_fingerprints(std::vector<Hash128> &r) {
+    ips2ra::sort(r.begin(), r.end(),
+                 [](const Hash128 &key) -> uint64_t { return key.lo; });
+}
+
+template<typename RandomIt>
+RandomIt partition(RandomIt first, RandomIt last) {
+    auto pivot = *(last - 1); // choose the last element as pivot
+    auto store = first;
+
+    for (auto it = first; it < last - 1; ++it) {
+        if (it->lo < pivot.lo) {
+            std::iter_swap(it, store);
+            ++store;
         }
+    }
+    std::iter_swap(store, last - 1); // move pivot to final place
+    return store;
+}
 
-        DummyFilter build() {
-            return DummyFilter();
+template<typename RandomIt>
+RandomIt quickSelect(RandomIt first, RandomIt last, size_t k) {
+    while (first < last) {
+        auto pivotIt = partition(first, last);
+        size_t index = pivotIt - first;
+
+        if (index == k) {
+            return pivotIt;
+        } else if (index < k) {
+            first = pivotIt + 1;
+            k -= index + 1;
+        } else {
+            last = pivotIt;
         }
-
-    };
-
-    bool bump(int level, Hash128 hash) const {
-        (void) level, (void) hash;
-        return true;
     }
+    return last;
+}
 
-    size_t count_bits() const {
-        return sizeof(*this) * 8;
-    }
-
-    static std::string name() {
-        return "none";
-    }
-};
-
-class RibbonFilter {
-private:
-    using Ribbon = SimpleRibbon<1>;
-
-    mutable Ribbon ribbon;
-    RibbonFilter(Ribbon &&src): ribbon(std::move(src)) {}
-
-    static uint64_t hash(Hash128 h, int level) {
-        return h.lo + uint64_t(level);
-    }
-
-public:
-    class Builder {
-    private:
-        std::vector<std::pair<uint64_t, uint8_t>> items;
-
-    public:
-        Builder() {}
-
-        void add(int level, std::vector<Hash128> &elems, size_t bump) {
-            for (size_t i = 0; i < elems.size(); i++) {
-                items.emplace_back(hash(elems[i], level), i < bump);
-            }
-            elems.resize(bump);
-        }
-
-        RibbonFilter build() {
-            return RibbonFilter(std::move(Ribbon(items)));
-        }
-
-    };
-
-    bool bump(int level, Hash128 h) const {
-        return ribbon.retrieve(hash(h, level));
-    }
-
-    size_t count_bits() const {
-        return ribbon.sizeBytes() * 8;
-    }
-
-    static std::string name() {
-        return "ribbon";
-    }
-};
-
-template<uint64_t K, int THRESHOLD_SIZE, typename Filter = RibbonFilter>
+template<uint64_t K, int THRESHOLD_SIZE, bool packing>
 class ThresholdBasedBumping {
     static_assert(THRESHOLD_SIZE > 1);
     static_assert(K > 0);
@@ -138,8 +105,9 @@ private:
 
     uint64_t n;
     std::vector<uint64_t> nbuckets;
+    std::vector<uint64_t> layerSpotsBound;
     std::vector<uint8_t> thresholds;
-    [[no_unique_address]] Filter filter;
+    SimpleRibbon<1> retrieval;
     fips::FiPS<> phf;
     mutable sux::bits::EliasFano<> gaps;
 
@@ -148,26 +116,38 @@ public:
         return operator()(Hash128(key));
     }
 
-    uint64_t operator()(const Hash128 hash) const {
+    uint64_t operator()(Hash128 hash) const {
         uint64_t offset = 0;
         for (uint64_t i = 0; i < nbuckets.size(); i++) {
             uint64_t cur_buckets = nbuckets[i];
-            Key key = calculateBucketAndFingerprint(hash, i, cur_buckets);
-            key.bucket += offset;
+            uint64_t keyBucket = getBucket(hash, cur_buckets);
+            keyBucket += offset;
             uint64_t tidx;
-            uint64_t off = key.bucket * threshold_size;
+            uint64_t off = keyBucket * threshold_size;
             memcpy(&tidx, thresholds.data() + off/8, 8);
             tidx >>= off%8;
             tidx &= (uint64_t(1) << threshold_size) - 1;
 
-            if (tidx != 0 && key.fingerprint < avail_thresholds[tidx-1]) {
-                return key.bucket;
-            }
-            if (tidx == n_thresholds || key.fingerprint < avail_thresholds[tidx]) {
-                if (!filter.bump(i, hash)) {
-                    return key.bucket;
+            if constexpr (packing) {
+                if (tidx != 0 && hash.lo < avail_thresholds[tidx-1]) {
+                    return keyBucket;
+                }
+                if (tidx == n_thresholds || hash.lo < avail_thresholds[tidx]) {
+                    if (retrieval.retrieve(hash.lo)) {
+                        return keyBucket;
+                    }
+                }
+            } else {
+                if (tidx != 0 && hash.lo < avail_thresholds[tidx-1]) {
+                    return keyBucket;
                 }
             }
+
+            if(hash.hi < layerSpotsBound[i]) {
+                return gaps.select(phf(hash.hi ^ hash.lo));
+            }
+
+            hash = Hash128(bytehamster::util::remix(hash.hi),bytehamster::util::remix(hash.lo));
 
             offset += cur_buckets;
         }
@@ -179,45 +159,34 @@ public:
         return sizeof(*this) * 8
             - sizeof(avail_thresholds) * 8 // Lookup table independent of keys, could actually be static constexpr
             + nbuckets.capacity() * 64
+            + layerSpotsBound.capacity() * 64
             + thresholds.capacity() * 8
-            + filter.count_bits() - sizeof(filter) * 8
+            + (packing ? retrieval.sizeBytes() : 0) * 8
             + phf.getBits() - sizeof(phf) * 8
             + gaps.bitCount() - sizeof(gaps) * 8
         ;
     }
-
-    static inline Key calculateBucketAndFingerprint(Hash128 key, size_t layer, size_t cur_buckets) {
-        uint64_t b = bytehamster::util::fastrange64(bytehamster::util::remix(key.hi + layer), cur_buckets);
-        uint64_t f = bytehamster::util::remix(key.lo + layer);
-
-        return Key(b, f, key);
-    }
-
     ThresholdBasedBumping()
-        : avail_thresholds(), n(0), filter(typename Filter::Builder().build()), gaps(std::vector<uint64_t>(), 0) {
+        : avail_thresholds(), n(0), gaps(std::vector<uint64_t>(), 0) {
     }
 
     explicit ThresholdBasedBumping(const std::vector<std::string> &keys, double overload)
-        : ThresholdBasedBumping(hashKeys(keys, overload), overload) {
+        : ThresholdBasedBumping(hashKeys(keys), overload) {
     }
 
-    static std::vector<Key> hashKeys(const std::vector<std::string> &keys, double overload) {
-        double overload_bucket_size = _k * overload;
-        uint64_t total_buckets = (keys.size() + _k - 1) / _k;
-        uint64_t cur_buckets = std::min(total_buckets, uint64_t(std::ceil(keys.size() / overload_bucket_size)));
-        std::vector<Key> hashed_keys;
+    static std::vector<Hash128> hashKeys(const std::vector<std::string> &keys) {
+        std::vector<Hash128> hashed_keys;
         hashed_keys.reserve(keys.size());
         for (const auto &key : keys) {
-            hashed_keys.emplace_back(calculateBucketAndFingerprint(Hash128(key), 0, cur_buckets));
+            hashed_keys.emplace_back(Hash128(key));
         }
         return hashed_keys;
     }
 
-    explicit ThresholdBasedBumping(std::vector<Key> keys, double overload)
+    explicit ThresholdBasedBumping(std::vector<Hash128> keys, double overload)
             : avail_thresholds(compute_thresholds<n_thresholds>(_k, _k * overload)),
-              n(keys.size()), filter(typename Filter::Builder().build()),
+              n(keys.size()),
               gaps(std::vector<uint64_t>(), 0) {
-        typename Filter::Builder filter;
         double overload_bucket_size = _k * overload;
         uint64_t total_buckets = (n + _k - 1) / _k;
         thresholds.resize((total_buckets * threshold_size + 7) / 8 + 7);
@@ -228,81 +197,70 @@ public:
 #endif
 
         uint64_t offset = 0;
+        std::vector<std::pair<uint64_t, uint8_t>> retrievalItems;
+        std::vector<uint64_t> fallbackKeys;
         std::vector<uint64_t> spots;
         std::vector<Hash128> bumped;
         for (uint64_t layer = 0; offset != total_buckets; layer++) {
             size_t nThisLayer = layer == 0 ? keys.size() : bumped.size();
-            uint64_t cur_buckets = std::min(total_buckets - offset, uint64_t(std::ceil(nThisLayer / overload_bucket_size)));
+            uint64_t cur_buckets = std::min(total_buckets - offset, std::max(uint64_t(1),uint64_t(std::ceil(nThisLayer / overload_bucket_size))));
             nbuckets.push_back(cur_buckets);
 
             if (layer > 0) {
-                keys.clear();
-                keys.reserve(bumped.size());
-                for (const Hash128 &key : bumped) {
-                    keys.push_back(calculateBucketAndFingerprint(key, layer, cur_buckets));
-                }
+                bumped.swap(keys);
                 bumped.clear();
             }
 
-            sort_buckets(keys);
+            uint64_t spotsBeforeThisLayer = spots.size();
+            std::vector<Hash128> bumpOrFill;
+            sort_buckets(keys, cur_buckets);
             auto next = keys.begin();
             for (uint64_t j = 0; j < cur_buckets; j++) {
                 auto start = next;
-                while (next != keys.end() && next->bucket == j) ++next;
+                while (next != keys.end() && getBucket(*next, cur_buckets) == j) ++next;
                 auto bucket = std::ranges::subrange(start, next);
-                sort_fingerprints(bucket);
                 uint64_t tidx;
-                typename std::vector<Key>::iterator perfect;
                 if (bucket.size() <= _k) {
                     tidx = n_thresholds;
-                    perfect = bucket.end();
                 } else {
-                    tidx = std::ranges::upper_bound(avail_thresholds, bucket[_k].fingerprint) - avail_thresholds.begin();
-                    perfect = bucket.begin() + _k;
+                    Hash128 kthKey = *quickSelect(bucket.begin(), bucket.end(), _k);
+                    tidx = std::ranges::upper_bound(avail_thresholds, kthKey.lo) - avail_thresholds.begin();
                 }
 
-                auto bound = tidx == 0 ? bucket.begin() :
-                    std::ranges::lower_bound(
-                        bucket,
-                        avail_thresholds[tidx-1],
-                        std::less<uint64_t>(),
-                        [](auto &x) { return x.fingerprint; }
-                    );
+                uint64_t in_bucket=0;
+                auto currKey = bucket.begin();
+                std::vector<Hash128> bumpOrFillPossibly;
+                while (currKey != bucket.end()) {
+                    if constexpr (packing) {
+                        if (currKey->lo < avail_thresholds[tidx - 1]) {
+                            in_bucket++;
+                        } else {
+                            if (tidx == n_thresholds || currKey->lo < avail_thresholds[tidx]) {
+                                bumpOrFillPossibly.emplace_back(*currKey);
+                            } else {
+                                bumpOrFill.emplace_back(*currKey);
+                            }
+                        }
+                    } else {
+                        if (currKey->lo < avail_thresholds[tidx - 1]) {
+                            in_bucket++;
+                        } else {
+                            bumpOrFill.emplace_back(*currKey);
+                        }
+                    }
+                    currKey++;
+                }
 
-#ifdef STATS
-                total_thresholds++;
-                if (bound == perfect) perfect_thresholds++;
-                if (bucket.size() >= _k) overfull_buckets++;
-#endif
-
-                uint64_t in_bucket;
-                /* bound == bucket.begin() may occur if bucket.empty() */
-                if (tidx >= 2 && bound == perfect && bound != bucket.begin()
-                        && prev(bound)->fingerprint < avail_thresholds[tidx-2]) {
-                    tidx--;
-                    in_bucket = bound - bucket.begin();
-                    for (Key &k: std::ranges::subrange(bound, bucket.end())) {
-                        bumped.push_back(k.hash);
+                if constexpr (packing) {
+                    for (Hash128 h: bumpOrFillPossibly) {
+                        if (in_bucket < _k) {
+                            in_bucket++;
+                            retrievalItems.emplace_back(h.lo, true);
+                        } else {
+                            bumpOrFill.push_back(h);
+                            retrievalItems.emplace_back(h.lo, false);
+                        }
                     }
-                } else {
-                    auto upper = bound;
-                    std::vector<Hash128> bump;
-                    while (upper != bucket.end()
-                            && (tidx == n_thresholds || upper->fingerprint < avail_thresholds[tidx])) {
-                        bump.push_back(upper->hash);
-                        ++upper;
-                    }
-                    size_t need_bump = upper - perfect;
-                    filter.add(layer, bump, need_bump);
-                    assert(bump.size() >= need_bump);
-#ifdef STATS
-                    extra_bumped += (uint64_t) (bump.size() - need_bump);
-#endif
-                    bumped.insert(bumped.end(), bump.begin(), bump.end());
-                    for (Key &k: std::ranges::subrange(upper, bucket.end())) {
-                        bumped.push_back(k.hash);
-                    }
-                    in_bucket = (upper - bucket.begin()) - bump.size();
                 }
 
 #ifdef STATS
@@ -320,6 +278,17 @@ public:
                     spots.push_back(offset + j);
                 }
             }
+
+            uint64_t spotsInThisLayer = spots.size() - spotsBeforeThisLayer;
+            uint64_t relFill = double_to_u64(double(spotsInThisLayer) / double(bumpOrFill.size()));
+            layerSpotsBound.push_back(relFill);
+            for (Hash128 key : bumpOrFill) {
+                if (key.hi < relFill) {
+                    fallbackKeys.push_back(key.hi ^ key.lo);
+                } else {
+                    bumped.emplace_back(bytehamster::util::remix(key.hi),bytehamster::util::remix(key.lo));
+                }
+            }
             offset += cur_buckets;
         }
         nbuckets.shrink_to_fit();
@@ -328,7 +297,6 @@ public:
         bumped_keys += bumped.size();
 #endif
 
-        std::vector<uint64_t> fallbackKeys;
         for (Hash128 key : bumped) {
             fallbackKeys.push_back(key.hi ^ key.lo);
         }
@@ -347,7 +315,9 @@ public:
         }
 
         gaps = sux::bits::EliasFano<>(actual_spots, total_buckets);
-        this->filter = std::move(filter.build());
+        if constexpr (packing) {
+            retrieval = SimpleRibbon<1>(retrievalItems);
+        }
     }
 };
 

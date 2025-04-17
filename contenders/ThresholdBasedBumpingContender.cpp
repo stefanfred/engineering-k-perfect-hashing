@@ -5,8 +5,8 @@
 
 template <size_t k, size_t thresholdSize>
 void dispatchFilter(size_t N, double overload) {
-    ThresholdBasedBumpingContender<k, thresholdSize, kphf::ThresholdBasedBumping::DummyFilter>(N, overload).run();
-    ThresholdBasedBumpingContender<k, thresholdSize, kphf::ThresholdBasedBumping::RibbonFilter>(N, overload).run();
+    ThresholdBasedBumpingContender<k, thresholdSize, false>(N, overload).run();
+    ThresholdBasedBumpingContender<k, thresholdSize, true>(N, overload).run();
 }
 
 template <size_t k, size_t thresholdSize>

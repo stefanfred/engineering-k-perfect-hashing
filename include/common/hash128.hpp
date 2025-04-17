@@ -7,6 +7,9 @@
 struct Hash128 {
     uint64_t hi, lo;
 
+    explicit Hash128(uint64_t hi, uint64_t lo) : hi(hi), lo(lo) {
+    }
+
     explicit Hash128() : hi(0), lo(0) {
     }
 

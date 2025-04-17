@@ -3,11 +3,10 @@
 #include <ThresholdBasedBumping.hpp>
 #include "Contender.h"
 
-template <size_t k, int thresholdSize = bytehamster::util::ceillog2(k),
-        typename Filter = kphf::ThresholdBasedBumping::RibbonFilter>
+template <size_t k, int thresholdSize = bytehamster::util::ceillog2(k), bool packing = true>
 class ThresholdBasedBumpingContender : public Contender {
     public:
-        using ThresholdBasedBumping = kphf::ThresholdBasedBumping::ThresholdBasedBumping<k, thresholdSize, Filter>;
+        using ThresholdBasedBumping = kphf::ThresholdBasedBumping::ThresholdBasedBumping<k, thresholdSize, packing>;
         ThresholdBasedBumping kphf;
         double overload;
 
@@ -19,7 +18,7 @@ class ThresholdBasedBumpingContender : public Contender {
             return std::string("ThresholdBasedBumping")
                     + " overload=" + std::to_string(overload)
                     + " thresholdSize=" + std::to_string(thresholdSize)
-                    + " filter=" + Filter::name();
+                    + " packing=" + std::to_string(packing);
         }
 
         void construct(const std::vector<std::string> &keys) override {
