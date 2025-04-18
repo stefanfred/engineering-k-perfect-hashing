@@ -17,8 +17,9 @@ template <size_t k>
 struct TableRunner {
     void operator() (size_t N) const {
         { ChdContender(N, k, 0.97, 8, false).run(); }
-        // { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::RiceEncoding>(N, bucketSize).run(); }
-        // { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::CompactEncoding>(N, bucketSize).run(); }
+        size_t bucketSize = (k == 1000) ? 250 : 12;
+        { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::RiceEncoding>(N, bucketSize).run(); }
+        { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::CompactEncoding>(N, bucketSize).run(); }
         { PaCHashContender(N, k, k).run(); }
         { ThresholdBasedBumpingOldContender<k>(N).run(); }
         // { ThresholdBasedBumpingContender<k, thresholdSize, false>(N, overload).run(); }
