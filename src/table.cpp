@@ -1,6 +1,5 @@
 #include <tlx/cmdline_parser.hpp>
 
-#include "DispatchK.h"
 #include "ChdContender.hpp"
 #include "HashDisplaceContender.hpp"
 #include "PaCHashContender.hpp"
@@ -13,36 +12,35 @@
 #include <CompactEncoding.hpp>
 #include <RiceEncoding.hpp>
 
-template <size_t k>
-struct TableRunner {
-    void operator() (size_t N) const {
-        { ChdContender(N, k, 0.97, 8, false).run(); }
-        size_t bucketSize = (k == 1000) ? 250 : 12;
-        { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::RiceEncoding>(N, bucketSize).run(); }
-        { HashDisplaceContender<k, kphf::HashDisplace::OptimalBucketFunction<k>, kphf::HashDisplace::CompactEncoding>(N, bucketSize).run(); }
-        { PaCHashContender(N, k, k).run(); }
-        { ThresholdBasedBumpingOldContender<k>(N).run(); }
-        // { ThresholdBasedBumpingContender<k, thresholdSize, false>(N, overload).run(); }
-        // { ThresholdBasedBumpingContender<k, thresholdSize, true>(N, overload).run(); }
-        // { ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, overload).run(); }
-        { KRecSplitContender<k, 2>(N, 5000).run(); }
-    }
-};
-
 int main(int argc, char** argv) {
     size_t N = 5e6;
-    size_t k = 8;
-
     tlx::CmdlineParser cmd;
     cmd.add_bytes('n', "numKeys", N, "Number of objects");
     cmd.add_bytes('q', "numQueries", Contender::numQueries, "Number of queries to perform");
     cmd.add_bytes('t', "numThreads", Contender::numThreads, "Number of threads to run benchmarks with");
     cmd.add_flag('T', "skipTests", Contender::skipTests, "Skip testing PHF for validity");
     cmd.add_bytes('s', "seed", Contender::seed, "Seed for random inputs");
-    cmd.add_bytes('k', "k", k, "Number of collisions per output value");
     if (!cmd.process(argc, argv)) {
         return 1;
     }
-    dispatchK<TableRunner>(k, N);
+    { ChdContender(N, 10, 0.97, 8, false).run(); }
+    { HashDisplaceContender<10, kphf::HashDisplace::OptimalBucketFunction<10>, kphf::HashDisplace::RiceEncoding>(N, 12).run(); }
+    { HashDisplaceContender<10, kphf::HashDisplace::OptimalBucketFunction<10>, kphf::HashDisplace::CompactEncoding>(N, 12).run(); }
+    { PaCHashContender(N, 10, 10).run(); }
+    { ThresholdBasedBumpingOldContender<10>(N).run(); }
+    { ThresholdBasedBumpingContender<10, 5, false>(N, 2.0).run(); }
+    { ThresholdBasedBumpingContender<10, 4, true>(N, 2.0).run(); }
+    // { ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, overload).run(); }
+    { KRecSplitContender<10, 2>(N, 5000).run(); }
+
+    { ChdContender(N, 1000, 0.97, 8, false).run(); }
+    { HashDisplaceContender<1000, kphf::HashDisplace::OptimalBucketFunction<1000>, kphf::HashDisplace::RiceEncoding>(N, 250).run(); }
+    { HashDisplaceContender<1000, kphf::HashDisplace::OptimalBucketFunction<1000>, kphf::HashDisplace::CompactEncoding>(N, 250).run(); }
+    { PaCHashContender(N, 1000, 1000).run(); }
+    { ThresholdBasedBumpingOldContender<1000>(N).run(); }
+    { ThresholdBasedBumpingContender<1000, 9, false>(N, 1.2).run(); }
+    { ThresholdBasedBumpingContender<1000, 7, true>(N, 1.2).run(); }
+    // { ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, overload).run(); }
+    { KRecSplitContender<1000, 2>(N, 5000).run(); }
     return 0;
 }
