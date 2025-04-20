@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
     { ThresholdBasedBumpingOldContender<10>(N).run(); }
     { ThresholdBasedBumpingContender<10, 5, false>(N, 2.0).run(); }
     { ThresholdBasedBumpingContender<10, 4, true>(N, 2.0).run(); }
-    // { ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, overload).run(); }
+    { ThresholdBasedBumpingConsensusContender<10, 4>(N, 2.0).run(); }
     { KRecSplitContender<10, 2>(N, 5000).run(); }
 
     { ChdContender(N, 1000, 0.97, 8, false).run(); }
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     { ThresholdBasedBumpingOldContender<1000>(N).run(); }
     { ThresholdBasedBumpingContender<1000, 9, false>(N, 1.2).run(); }
     { ThresholdBasedBumpingContender<1000, 7, true>(N, 1.2).run(); }
-    // { ThresholdBasedBumpingConsensusContender<k, threshold_size>(N, overload).run(); }
+    { ThresholdBasedBumpingConsensusContender<1000, 7>(N, 1.2).run(); }
     { KRecSplitContender<1000, 2>(N, 5000).run(); }
     return 0;
 }
