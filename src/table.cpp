@@ -31,9 +31,8 @@ int main(int argc, char** argv) {
     { ThresholdBasedBumpingContender<10, 5, false>(N, 2.0).run(); }
     { ThresholdBasedBumpingContender<10, 4, true>(N, 2.0).run(); }
     { ThresholdBasedBumpingConsensusContender<10, 4>(N, 2.0).run(); }
-    { KRecSplitContender<10, 2>(N, 5000).run(); }
+    { KRecSplitContender<10, 2>(N, 2000).run(); }
 
-    { ChdContender(N, 1000, 0.97, 8, false).run(); }
     { HashDisplaceContender<1000, kphf::HashDisplace::OptimalBucketFunction<1000>, kphf::HashDisplace::RiceEncoding>(N, 250).run(); }
     { HashDisplaceContender<1000, kphf::HashDisplace::OptimalBucketFunction<1000>, kphf::HashDisplace::CompactEncoding>(N, 250).run(); }
     { PaCHashContender(N, 1000, 1000).run(); }
@@ -41,6 +40,6 @@ int main(int argc, char** argv) {
     { ThresholdBasedBumpingContender<1000, 9, false>(N, 1.2).run(); }
     { ThresholdBasedBumpingContender<1000, 7, true>(N, 1.2).run(); }
     { ThresholdBasedBumpingConsensusContender<1000, 7>(N, 1.2).run(); }
-    { KRecSplitContender<1000, 2>(N, 5000).run(); }
+    { KRecSplitContender<1000, 2>(N, 6000).run(); }
     return 0;
 }
