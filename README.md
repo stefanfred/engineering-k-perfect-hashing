@@ -6,6 +6,19 @@ Each output value might collide with up to k other keys.
 This repository contains a selection of k-perfect hash function implementations.
 It also includes benchmarks comparing them to other approaches from the literature.
 
+### Benchmark framework
+
+The benchmark framework for k-perfect hash functions can be found in the `contenders` and `benchmarklib` folders.
+To build the benchmarks, clone this repository (with submodules) and run the following commands.
+
+```
+cmake -B ./build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+You can then generate the plots using `./build/Comparison`.
+Use `./build/Comparison --help` to view available command line arguments.
+
 ### Library Usage
 
 Clone this repository (with submodules) and add the following to your `CMakeLists.txt`.
@@ -22,11 +35,6 @@ Each target is a different k-perfect hash function with its own set of dependenc
 - `Kphf::RecSplit`
 - `Kphf::HashDisplace`
 - `Kphf::ThresholdBasedBumping`
-
-### Benchmark framework
-
-This repository also contains a benchmark framework for k-perfect hash functions.
-The framework can be found in the `contenders` and `benchmarklib` folders.
 
 ### License
 
