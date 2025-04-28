@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --array=0-17
+#SBATCH --array=0-20
 
-params="--numKeys 50M --numQueries 50M"
+params="--numKeys 100M --numQueries 100M"
 jobsBase=(
     "$params --chd"
     "$params --hashDisplace"
