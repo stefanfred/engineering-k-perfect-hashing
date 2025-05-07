@@ -39,3 +39,16 @@ Each target is a different k-perfect hash function with its own set of dependenc
 ### License
 
 This code is licensed under the [GPLv3](/LICENSE).
+
+If you use this work in an academic context or publication, please cite our paper:
+
+```
+@article{hermann2025engineering,
+  author = {Stefan Hermann and Sebastian Kirmayer and Hans-Peter Lehmann and Peter Sanders and Stefan Walzer},
+  title = {Engineering Minimal k-Perfect Hash Functions},
+  journal = {CoRR},
+  volume = {abs/2504.20001},
+  year = {2025},
+  doi = {10.48550/ARXIV.2504.20001}
+}
+```
