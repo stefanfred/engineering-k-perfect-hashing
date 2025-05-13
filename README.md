@@ -6,6 +6,10 @@ Each output value might collide with up to k other keys.
 This repository contains a selection of k-perfect hash function implementations.
 It also includes benchmarks comparing them to other approaches from the literature.
 
+### Construction Performance (100M keys)
+
+<img src="plot.png" width="500"/>
+
 ### Benchmark framework
 
 The benchmark framework for k-perfect hash functions can be found in the `contenders` and `benchmarklib` folders.
