@@ -3,6 +3,9 @@
 A k-perfect hash function is a hash function that maps a set of keys to a set of integers.
 Each output value might collide with up to k other keys.
 
+The techniques included in this repository are described in our [paper](https://arxiv.org/pdf/2504.20001).
+Please cite it if you use our code in an academic context.
+
 This repository contains a selection of k-perfect hash function implementations.
 It also includes benchmarks comparing them to other approaches from the literature.
 
